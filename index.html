@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Настраиваемый тренажёр по таблице умножения для учителя и ученика." />
+  <title>Тренажёр по таблице умножения</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Учебный тренажёр</p>
+        <h1>Таблица умножения</h1>
+      </div>
+      <button id="themeButton" class="icon-button" type="button" aria-label="Переключить тему">◐</button>
+    </header>
+
+    <section id="setupScreen" class="screen">
+      <div class="grid two-columns">
+        <article class="card">
+          <h2>Настройки учителя</h2>
+
+          <fieldset>
+            <legend>Какие таблицы проверяем</legend>
+            <div class="toolbar">
+              <button id="selectAllTables" class="small-button" type="button">Выбрать все</button>
+              <button id="clearTables" class="small-button secondary" type="button">Сбросить</button>
+            </div>
+
+            <label class="switch-row">
+              <input id="randomTables" type="checkbox" />
+              <span>Случайные таблицы от 2 до 10</span>
+            </label>
+
+            <div id="tablesGrid" class="check-grid" aria-label="Выбор таблиц"></div>
+            <p id="tablesHint" class="hint">Выберите хотя бы одну таблицу.</p>
+          </fieldset>
+
+          <div class="form-grid">
+            <label>
+              Количество примеров
+              <input id="questionCount" type="number" min="5" max="100" value="15" />
+            </label>
+
+            <label>
+              Минимальный множитель
+              <input id="minFactor" type="number" min="1" max="12" value="1" />
+            </label>
+
+            <label>
+              Максимальный множитель
+              <input id="maxFactor" type="number" min="1" max="12" value="10" />
+            </label>
+
+            <label>
+              Ограничение времени
+              <select id="timeLimit">
+                <option value="0">Без таймера</option>
+                <option value="60">1 минута</option>
+                <option value="120">2 минуты</option>
+                <option value="180">3 минуты</option>
+                <option value="300">5 минут</option>
+              </select>
+            </label>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2>Виды заданий</h2>
+          <div id="typesGrid" class="type-list">
+            <label><input type="checkbox" value="direct" checked /> Обычный пример</label>
+            <label><input type="checkbox" value="reversed" checked /> Перестановка множителей</label>
+            <label><input type="checkbox" value="missing" checked /> Пропущенный множитель</label>
+            <label><input type="checkbox" value="division" checked /> Обратное действие</label>
+            <label><input type="checkbox" value="choice" checked /> Выбор ответа</label>
+            <label><input type="checkbox" value="boolean" checked /> Верно или неверно</label>
+            <label><input type="checkbox" value="comparison" /> Сравнение выражений</label>
+            <label><input type="checkbox" value="visual" /> Наглядная модель</label>
+          </div>
+
+          <hr />
+
+          <h3>Поведение тренажёра</h3>
+          <label class="switch-row">
+            <input id="instantFeedback" type="checkbox" checked />
+            <span>Показывать результат после каждого ответа</span>
+          </label>
+          <label class="switch-row">
+            <input id="secondAttempt" type="checkbox" checked />
+            <span>Разрешить вторую попытку</span>
+          </label>
+          <label class="switch-row">
+            <input id="shuffleQuestions" type="checkbox" checked />
+            <span>Перемешивать задания</span>
+          </label>
+
+          <button id="startButton" class="primary-button wide" type="button">Начать тренировку</button>
+          <p id="setupError" class="error-message" role="alert"></p>
+        </article>
+      </div>
+
+      <article class="card history-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">На этом устройстве</p>
+            <h2>Последние результаты</h2>
+          </div>
+          <button id="clearHistory" class="small-button secondary" type="button">Очистить историю</button>
+        </div>
+        <div id="historyContent" class="history-content"></div>
+      </article>
+    </section>
+
+    <section id="quizScreen" class="screen hidden" aria-live="polite">
+      <article class="card quiz-card">
+        <div class="quiz-topbar">
+          <div>
+            <span id="progressText">Задание 1 из 15</span>
+            <div class="progress-track" aria-hidden="true">
+              <div id="progressBar" class="progress-bar"></div>
+            </div>
+          </div>
+          <div class="timer-box">
+            <span>Время</span>
+            <strong id="timerText">00:00</strong>
+          </div>
+        </div>
+
+        <div id="questionArea" class="question-area">
+          <p id="questionLabel" class="question-label">Вычисли</p>
+          <div id="questionText" class="question-text"></div>
+          <div id="visualArea" class="visual-area hidden"></div>
+        </div>
+
+        <div id="answerArea" class="answer-area"></div>
+        <p id="feedback" class="feedback" role="status"></p>
+
+        <div class="quiz-actions">
+          <button id="submitButton" class="primary-button" type="button">Ответить</button>
+          <button id="nextButton" class="primary-button hidden" type="button">Следующий пример</button>
+          <button id="finishEarlyButton" class="text-button" type="button">Завершить досрочно</button>
+        </div>
+      </article>
+    </section>
+
+    <section id="resultsScreen" class="screen hidden">
+      <article class="card results-hero">
+        <p class="eyebrow">Тренировка завершена</p>
+        <h2 id="resultTitle">Хорошая работа!</h2>
+        <div class="score-circle">
+          <strong id="scorePercent">0%</strong>
+          <span>точность</span>
+        </div>
+
+        <div class="stats-grid">
+          <div><span>Правильно</span><strong id="correctStat">0 из 0</strong></div>
+          <div><span>Время</span><strong id="timeStat">00:00</strong></div>
+          <div><span>Средний ответ</span><strong id="averageStat">0 сек</strong></div>
+          <div><span>Лучшая серия</span><strong id="streakStat">0</strong></div>
+        </div>
+      </article>
+
+      <div class="grid two-columns results-grid">
+        <article class="card">
+          <h2>Результаты по таблицам</h2>
+          <div id="tableResults"></div>
+        </article>
+
+        <article class="card">
+          <h2>Рекомендация</h2>
+          <p id="recommendation" class="recommendation"></p>
+        </article>
+      </div>
+
+      <article class="card">
+        <div class="section-heading">
+          <h2>Разбор ответов</h2>
+          <button id="exportCsvButton" class="small-button" type="button">Скачать CSV</button>
+        </div>
+        <div id="mistakesList" class="mistakes-list"></div>
+      </article>
+
+      <div class="result-actions">
+        <button id="retryMistakesButton" class="primary-button" type="button">Работа над ошибками</button>
+        <button id="restartButton" class="secondary-button" type="button">Новая тренировка</button>
+      </div>
+    </section>
+  </main>
+
+  <template id="numericAnswerTemplate">
+    <label class="answer-label">
+      Ваш ответ
+      <input class="answer-input" type="number" inputmode="numeric" autocomplete="off" />
+    </label>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

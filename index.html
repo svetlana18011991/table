@@ -7,7 +7,21 @@
   <title>Тренажёр по таблице умножения</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body class="trainer-locked">
+  <div id="passwordGate" class="password-gate" role="dialog" aria-modal="true" aria-labelledby="passwordTitle">
+    <form id="passwordForm" class="password-card" novalidate>
+      <div class="password-icon" aria-hidden="true">🔐</div>
+      <p class="eyebrow">Доступ к тренажёру</p>
+      <h1 id="passwordTitle">Введите пароль</h1>
+      <p class="password-description">Пароль нужен для открытия тренажёра.</p>
+      <label class="password-label" for="passwordInput">Пароль
+        <input id="passwordInput" class="password-input" type="password" autocomplete="current-password" spellcheck="false" required />
+      </label>
+      <button id="unlockButton" class="primary-button password-submit" type="submit">Открыть тренажёр</button>
+      <p id="passwordError" class="password-error" role="alert" aria-live="polite"></p>
+    </form>
+  </div>
+
 <main class="app-shell">
     <header class="app-header">
       <div>
@@ -243,27 +257,8 @@
   </template>
 
   <script id="trainerPreset">window.TRAINER_PRESET = null; window.TRAINER_STUDENT_FILE = false;</script>
-<script src="game-data/assets-init.js"></script>
-<script src="game-data/templates.js"></script>
-<script src="game-data/pinata-background.js"></script>
-<script src="game-data/pinata-stages-1.js"></script>
-<script src="game-data/pinata-stages-2.js"></script>
-<script src="game-data/pinata-stages-3.js"></script>
-<script src="game-data/pinata-stages-4.js"></script>
-<script src="game-data/pinata-stages-5.js"></script>
-<script src="game-data/pinata-stages-6.js"></script>
-<script src="game-data/pinata-logo.js"></script>
-<script src="game-data/tower-background.js"></script>
-<script src="game-data/tower-blocks-1.js"></script>
-<script src="game-data/tower-blocks-2.js"></script>
-<script src="game-data/tower-blocks-3.js"></script>
-<script src="game-data/tower-blocks-4.js"></script>
-<script src="game-data/tower-blocks-5.js"></script>
-<script src="game-data/tower-blocks-6.js"></script>
-<script src="game-data/tower-blocks-7.js"></script>
-<script src="game-data/tower-blocks-8.js"></script>
-<script src="game-data/tower-blocks-9.js"></script>
-<script src="game-data/tower-logo.js"></script>
+<script src="assets.js"></script>
+<script src="templates.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

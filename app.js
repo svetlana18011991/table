@@ -1,11 +1,8 @@
-const TRAINER_PASSWORD = "счет";
-
 const elements = {
   passwordGate: document.getElementById("passwordGate"),
   passwordForm: document.getElementById("passwordForm"),
   passwordInput: document.getElementById("passwordInput"),
   passwordError: document.getElementById("passwordError"),
-  unlockButton: document.getElementById("unlockButton"),
   setupScreen: document.getElementById("setupScreen"),
   quizScreen: document.getElementById("quizScreen"),
   resultsScreen: document.getElementById("resultsScreen"),
@@ -61,6 +58,15 @@ const elements = {
   numericAnswerTemplate: document.getElementById("numericAnswerTemplate")
 };
 
+const ACCESS_PASSWORD = "счет";
+
+function normalizeAccessPassword(value) {
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase("ru-RU")
+    .replaceAll("ё", "е");
+}
+
 const TYPE_LABELS = {
   direct: "Обычный пример",
   reversed: "Перестановка множителей",
@@ -87,7 +93,8 @@ const state = {
   currentStreak: 0,
   locked: false,
   retryMode: false,
-  selectedGameType: "race"
+  selectedGameType: "race",
+  studentAutoStarted: false
 };
 
 function init() {
@@ -96,46 +103,43 @@ function init() {
   bindEvents();
   loadTheme();
   renderHistory();
-  showPasswordGate();
+
+  if (window.TRAINER_STUDENT_FILE) {
+    elements.studentFileBanner.classList.remove("hidden");
+  }
+
+  lockTrainer();
 }
 
-function showPasswordGate() {
+function lockTrainer() {
   document.body.classList.add("trainer-locked");
-  elements.passwordGate.classList.remove("hidden");
+  elements.passwordGate.hidden = false;
   elements.passwordInput.value = "";
   elements.passwordError.textContent = "";
   window.setTimeout(() => elements.passwordInput.focus(), 50);
 }
 
-function normalizeTrainerPassword(value) {
-  return String(value ?? "")
-    .trim()
-    .toLocaleLowerCase("ru-RU")
-    .replaceAll("ё", "е");
-}
-
-function unlockTrainer(event) {
+function handlePasswordSubmit(event) {
   event.preventDefault();
-  const enteredPassword = normalizeTrainerPassword(elements.passwordInput.value);
-  const expectedPassword = normalizeTrainerPassword(TRAINER_PASSWORD);
 
-  if (enteredPassword !== expectedPassword) {
+  if (normalizeAccessPassword(elements.passwordInput.value) !== normalizeAccessPassword(ACCESS_PASSWORD)) {
     elements.passwordError.textContent = "Неверный пароль. Попробуйте ещё раз.";
     elements.passwordInput.select();
     elements.passwordInput.focus();
     return;
   }
 
-  elements.passwordError.textContent = "";
-  elements.passwordGate.classList.add("hidden");
-  document.body.classList.remove("trainer-locked");
+  unlockTrainer();
+}
 
-  if (window.TRAINER_STUDENT_FILE) {
-    elements.studentFileBanner.textContent = "Пароль принят. Задание запускается…";
-    elements.studentFileBanner.classList.remove("hidden");
-    window.setTimeout(() => startQuiz(), 100);
-  } else {
-    elements.startButton.focus();
+function unlockTrainer() {
+  document.body.classList.remove("trainer-locked");
+  elements.passwordGate.hidden = true;
+  elements.passwordError.textContent = "";
+
+  if (window.TRAINER_STUDENT_FILE && !state.studentAutoStarted) {
+    state.studentAutoStarted = true;
+    window.setTimeout(() => startQuiz(), 80);
   }
 }
 
@@ -153,7 +157,7 @@ function buildTableControls() {
 }
 
 function bindEvents() {
-  elements.passwordForm.addEventListener("submit", unlockTrainer);
+  elements.passwordForm.addEventListener("submit", handlePasswordSubmit);
   elements.selectAllTables.addEventListener("click", () => setAllTables(true));
   elements.clearTables.addEventListener("click", () => setAllTables(false));
   elements.randomTables.addEventListener("change", updateTablesDisabledState);
@@ -286,6 +290,18 @@ async function downloadStandaloneHtml() {
         `window.TRAINER_PRESET = ${safePreset}; window.TRAINER_STUDENT_FILE = true;`;
     }
 
+    const clonedBody = clone.querySelector("body");
+    if (clonedBody) clonedBody.classList.add("trainer-locked");
+
+    const clonedGate = clone.querySelector("#passwordGate");
+    if (clonedGate) clonedGate.hidden = false;
+
+    const clonedPasswordInput = clone.querySelector("#passwordInput");
+    if (clonedPasswordInput) clonedPasswordInput.value = "";
+
+    const clonedPasswordError = clone.querySelector("#passwordError");
+    if (clonedPasswordError) clonedPasswordError.textContent = "";
+
     const setupScreen = clone.querySelector("#setupScreen");
     const quizScreen = clone.querySelector("#quizScreen");
     const resultsScreen = clone.querySelector("#resultsScreen");
@@ -309,7 +325,7 @@ async function downloadStandaloneHtml() {
     if (title) title.textContent = "Тренажёр по таблице умножения — задание";
 
     const html = `<!DOCTYPE html>\n${clone.outerHTML}`;
-    const blob = new Blob([html], { type: "application/octet-stream" });
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const tablesPart = settings.randomTables ? "random" : settings.tables.join("-");
@@ -321,7 +337,7 @@ async function downloadStandaloneHtml() {
     link.remove();
     URL.revokeObjectURL(url);
 
-    elements.setupError.textContent = "HTML-файл скачан. Здесь можно сразу начать тренировку кнопкой «Начать здесь».";
+    elements.setupError.textContent = "HTML-файл готов. Его можно отправить ученику.";
     elements.setupError.classList.add("success-message");
     window.setTimeout(() => {
       elements.setupError.textContent = "";
@@ -717,7 +733,13 @@ function triggerHtmlDownload(html, fileName) {
 }
 
 function pngBase64DataUrl(base64Value) {
-  return `data:image/png;base64,${base64Value}`;
+  const value = String(base64Value || "");
+  const mime = value.startsWith("UklGR")
+    ? "image/webp"
+    : value.startsWith("/9j/")
+      ? "image/jpeg"
+      : "image/png";
+  return `data:${mime};base64,${value}`;
 }
 
 function svgDataUrl(svg) {
@@ -1538,7 +1560,7 @@ function resetToSetup() {
   state.timerId = null;
 
   if (window.TRAINER_STUDENT_FILE) {
-    window.setTimeout(() => startQuiz(), 0);
+    startQuiz();
     return;
   }
 

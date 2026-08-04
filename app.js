@@ -197,62 +197,98 @@ function applyPresetSettings(preset) {
   updateTablesDisabledState();
 }
 
-function downloadStandaloneHtml() {
+async function inlineExternalResources(clone) {
+  const baseUrl = document.baseURI;
+
+  for (const link of [...clone.querySelectorAll('link[rel="stylesheet"][href]')]) {
+    const response = await fetch(new URL(link.getAttribute("href"), baseUrl));
+    if (!response.ok) throw new Error(`Не удалось загрузить стили: ${link.getAttribute("href")}`);
+    const style = clone.ownerDocument.createElement("style");
+    style.id = link.id || "trainerStyles";
+    style.textContent = await response.text();
+    link.replaceWith(style);
+  }
+
+  for (const script of [...clone.querySelectorAll("script[src]")]) {
+    const source = script.getAttribute("src");
+    const response = await fetch(new URL(source, baseUrl));
+    if (!response.ok) throw new Error(`Не удалось загрузить скрипт: ${source}`);
+    const inlineScript = clone.ownerDocument.createElement("script");
+    if (script.type) inlineScript.type = script.type;
+    inlineScript.textContent = await response.text();
+    script.replaceWith(inlineScript);
+  }
+}
+
+async function downloadStandaloneHtml() {
   const settings = getSettings();
   const error = validateSettings(settings);
   elements.setupError.textContent = error;
   if (error) return;
 
-  const clone = document.documentElement.cloneNode(true);
-  const presetScript = clone.querySelector("#trainerPreset");
-  const safePreset = JSON.stringify(settings).replaceAll("<", "\\u003c");
+  elements.downloadHtmlButton.disabled = true;
+  elements.setupError.textContent = "Подготавливаю автономный HTML…";
 
-  if (presetScript) {
-    presetScript.textContent =
-      `window.TRAINER_PRESET = ${safePreset}; window.TRAINER_STUDENT_FILE = true;`;
+  try {
+    const clone = document.documentElement.cloneNode(true);
+    await inlineExternalResources(clone);
+
+    const presetScript = clone.querySelector("#trainerPreset");
+    const safePreset = JSON.stringify(settings).replaceAll("<", "\\u003c");
+
+    if (presetScript) {
+      presetScript.textContent =
+        `window.TRAINER_PRESET = ${safePreset}; window.TRAINER_STUDENT_FILE = true;`;
+    }
+
+    const setupScreen = clone.querySelector("#setupScreen");
+    const quizScreen = clone.querySelector("#quizScreen");
+    const resultsScreen = clone.querySelector("#resultsScreen");
+    if (setupScreen) setupScreen.classList.remove("hidden");
+    if (quizScreen) quizScreen.classList.add("hidden");
+    if (resultsScreen) resultsScreen.classList.add("hidden");
+
+    clone.querySelectorAll("#tablesGrid, #historyContent, #answerArea, #visualArea, #tableResults, #mistakesList")
+      .forEach((node) => { node.innerHTML = ""; });
+
+    const feedback = clone.querySelector("#feedback");
+    if (feedback) {
+      feedback.textContent = "";
+      feedback.className = "feedback";
+    }
+
+    const setupError = clone.querySelector("#setupError");
+    if (setupError) setupError.textContent = "";
+
+    const title = clone.querySelector("title");
+    if (title) title.textContent = "Тренажёр по таблице умножения — задание";
+
+    const html = `<!DOCTYPE html>\n${clone.outerHTML}`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const tablesPart = settings.randomTables ? "random" : settings.tables.join("-");
+
+    link.href = url;
+    link.download = `trenazher-tablica-${tablesPart}-${settings.count}-primerov.html`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    elements.setupError.textContent = "HTML-файл готов. Его можно отправить ученику.";
+    elements.setupError.classList.add("success-message");
+    window.setTimeout(() => {
+      elements.setupError.textContent = "";
+      elements.setupError.classList.remove("success-message");
+    }, 3500);
+  } catch (error) {
+    console.error(error);
+    elements.setupError.textContent =
+      "Не удалось собрать автономный файл. Откройте тренажёр через GitHub Pages и повторите.";
+  } finally {
+    elements.downloadHtmlButton.disabled = false;
   }
-
-  const setupScreen = clone.querySelector("#setupScreen");
-  const quizScreen = clone.querySelector("#quizScreen");
-  const resultsScreen = clone.querySelector("#resultsScreen");
-  if (setupScreen) setupScreen.classList.remove("hidden");
-  if (quizScreen) quizScreen.classList.add("hidden");
-  if (resultsScreen) resultsScreen.classList.add("hidden");
-
-  clone.querySelectorAll("#tablesGrid, #historyContent, #answerArea, #visualArea, #tableResults, #mistakesList")
-    .forEach((node) => { node.innerHTML = ""; });
-
-  const feedback = clone.querySelector("#feedback");
-  if (feedback) {
-    feedback.textContent = "";
-    feedback.className = "feedback";
-  }
-
-  const setupError = clone.querySelector("#setupError");
-  if (setupError) setupError.textContent = "";
-
-  const title = clone.querySelector("title");
-  if (title) title.textContent = "Тренажёр по таблице умножения — задание";
-
-  const html = `<!DOCTYPE html>\n${clone.outerHTML}`;
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  const tablesPart = settings.randomTables ? "random" : settings.tables.join("-");
-
-  link.href = url;
-  link.download = `trenazher-tablica-${tablesPart}-${settings.count}-primerov.html`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-
-  elements.setupError.textContent = "HTML-файл готов. Его можно отправить ученику.";
-  elements.setupError.classList.add("success-message");
-  window.setTimeout(() => {
-    elements.setupError.textContent = "";
-    elements.setupError.classList.remove("success-message");
-  }, 3500);
 }
 
 
@@ -287,9 +323,9 @@ function selectGameType(type) {
 
   const settings = getSettings();
   const messages = {
-    race: `Гонка получит ${settings.count} заданий. Трасса: летнее стандартное шоссе.`,
-    tower: "Башня рассчитана только на 9 заданий. В игру будут добавлены ровно 9 примеров по текущим настройкам.",
-    pinata: "Пиньята рассчитана только на 5 заданий. В игру будут добавлены ровно 5 примеров по текущим настройкам."
+    race: `Гонка получит ${settings.count} заданий. Код механики сохранён, трасса — летнее стандартное шоссе.`,
+    tower: "Башня рассчитана только на 9 заданий. Будут использованы оригинальный фон и 9 изображений блоков из архива.",
+    pinata: "Пиньята рассчитана только на 5 заданий. Будут использованы оригинальный фон и стадии пиньяты из архива."
   };
   const labels = {
     race: "Скачать игру «Гонка»",
@@ -470,28 +506,33 @@ function buildRaceGameHtml(template, questions) {
 }
 
 function buildTowerGameHtml(template, questions, settings) {
-  const background = svgDataUrl(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
-      <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#76c8ff"/><stop offset=".7" stop-color="#dff4ff"/><stop offset="1" stop-color="#a7d878"/></linearGradient></defs>
-      <rect width="1600" height="900" fill="url(#sky)"/>
-      <circle cx="1320" cy="130" r="78" fill="#ffe77a"/>
-      <path d="M0 690 Q250 590 500 700 T1000 675 T1600 680 V900 H0Z" fill="#68ad5a"/>
-      <path d="M0 760 Q260 660 550 770 T1120 745 T1600 750 V900 H0Z" fill="#3d8748"/>
-    </svg>`);
-  const blockFiles = Array.from({ length: 9 }, (_, index) => towerBlockSvgDataUrl(index + 1));
+  const assets = window.GAME_ASSET_BASE64?.tower;
+  if (!assets?.background || !Array.isArray(assets.blocks) || assets.blocks.length < 9) {
+    throw new Error("В архиве башни не найдены все изображения.");
+  }
+
+  const background = pngBase64DataUrl(assets.background);
+  const blockFiles = assets.blocks.slice(0, 9).map(pngBase64DataUrl);
+  const logo = assets.logo ? pngBase64DataUrl(assets.logo) : "";
+
   const config = {
     title: "Башня умножения",
-    useRepoBg: false,
+    useRepoBg: true,
     bgDataUrl: background,
-    timer: { enabled: settings.timeLimit > 0, seconds: settings.timeLimit > 0 ? Math.max(10, Math.round(settings.timeLimit / 9)) : 30 },
+    timer: {
+      enabled: settings.timeLimit > 0,
+      seconds: settings.timeLimit > 0 ? Math.max(10, Math.round(settings.timeLimit / 9)) : 30
+    },
     useImages: true,
     useLatex: false,
     instruction: {
-      text: "Построй башню из 9 этажей. Ответь правильно — и блок станет новым этажом.",
+      text: "Построй башню из 9 этажей. Ответь правильно — и оригинальный блок станет новым этажом.",
       color: "#f2d37a",
       glow: true
     },
-    feedback: { text: "Башня построена! Таблица умножения становится крепче." },
+    feedback: {
+      text: "Башня построена! Таблица умножения становится крепче."
+    },
     questions: questions.slice(0, 9).map((question) => ({
       type: "choice",
       prompt: question.prompt,
@@ -505,24 +546,29 @@ function buildTowerGameHtml(template, questions, settings) {
     }))
   };
 
-  let output = injectEmbeddedConfig(template, config, "<script>\nwindow.__EMBEDDED_CFG__=");
-  output = output.replace('const BG_FILE = "1.png";', `const BG_FILE = ${JSON.stringify(background)};`);
+  let output = injectEmbeddedConfig(template, config);
+  output = output.replace(
+    'const BG_FILE = "1.png";',
+    `const BG_FILE = ${JSON.stringify(background)};`
+  );
   output = output.replace(
     'const BLOCK_FILES = ["3.png","4.png","5.png","6.png","7.png","8.png","9.png","10.png","11.png"];',
     `const BLOCK_FILES = ${JSON.stringify(blockFiles)};`
   );
+  if (logo) output = output.replaceAll("logo.png", logo);
   return output;
 }
 
 function buildPinataGameHtml(template, questions) {
-  const background = svgDataUrl(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
-      <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#19104b"/><stop offset=".55" stop-color="#31227b"/><stop offset="1" stop-color="#0f6f87"/></linearGradient></defs>
-      <rect width="1600" height="900" fill="url(#bg)"/>
-      <g fill="#ffd54a" opacity=".8"><circle cx="180" cy="140" r="9"/><circle cx="470" cy="90" r="7"/><circle cx="1280" cy="170" r="10"/><circle cx="1420" cy="480" r="8"/><circle cx="280" cy="690" r="9"/></g>
-      <path d="M0 760 Q300 680 600 765 T1200 750 T1600 760 V900 H0Z" fill="#173f61" opacity=".9"/>
-    </svg>`);
-  const stages = Array.from({ length: 6 }, (_, index) => pinataStageSvgDataUrl(index));
+  const assets = window.GAME_ASSET_BASE64?.pinata;
+  if (!assets?.background || !Array.isArray(assets.stages) || assets.stages.length < 6) {
+    throw new Error("В архиве пиньяты не найдены все изображения.");
+  }
+
+  const background = pngBase64DataUrl(assets.background);
+  const stages = assets.stages.slice(0, 6).map(pngBase64DataUrl);
+  const logo = assets.logo ? pngBase64DataUrl(assets.logo) : "";
+
   const config = {
     title: "Пиньята умножения",
     titleFont: "",
@@ -548,8 +594,9 @@ function buildPinataGameHtml(template, questions) {
       audio: ""
     }))
   };
-  let output = injectEmbeddedConfig(template, config, "<script>\nwindow.__EMBEDDED_CFG__=");
-  output = output.replace("  function runGame(cfg, mount){", "  function runGame(cfg, mount){\n    document.title = cfg.title || \"Пиньята умножения\";");
+
+  let output = injectEmbeddedConfig(template, config);
+  if (logo) output = output.replaceAll("logo.png", logo);
   return output;
 }
 
@@ -582,6 +629,10 @@ function triggerHtmlDownload(html, fileName) {
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function pngBase64DataUrl(base64Value) {
+  return `data:image/png;base64,${base64Value}`;
 }
 
 function svgDataUrl(svg) {

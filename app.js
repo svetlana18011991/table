@@ -13,6 +13,15 @@ const elements = {
   secondAttempt: document.getElementById("secondAttempt"),
   shuffleQuestions: document.getElementById("shuffleQuestions"),
   startButton: document.getElementById("startButton"),
+  downloadHtmlButton: document.getElementById("downloadHtmlButton"),
+  createGameButton: document.getElementById("createGameButton"),
+  gameModal: document.getElementById("gameModal"),
+  closeGameModalButton: document.getElementById("closeGameModalButton"),
+  cancelGameButton: document.getElementById("cancelGameButton"),
+  downloadGameButton: document.getElementById("downloadGameButton"),
+  gameLimitWarning: document.getElementById("gameLimitWarning"),
+  gameTemplateStatus: document.getElementById("gameTemplateStatus"),
+  studentFileBanner: document.getElementById("studentFileBanner"),
   setupError: document.getElementById("setupError"),
   selectAllTables: document.getElementById("selectAllTables"),
   clearTables: document.getElementById("clearTables"),
@@ -70,14 +79,20 @@ const state = {
   bestStreak: 0,
   currentStreak: 0,
   locked: false,
-  retryMode: false
+  retryMode: false,
+  selectedGameType: "race"
 };
 
 function init() {
   buildTableControls();
+  applyPresetSettings(window.TRAINER_PRESET);
   bindEvents();
   loadTheme();
   renderHistory();
+
+  if (window.TRAINER_STUDENT_FILE) {
+    elements.studentFileBanner.classList.remove("hidden");
+  }
 }
 
 function buildTableControls() {
@@ -98,6 +113,16 @@ function bindEvents() {
   elements.clearTables.addEventListener("click", () => setAllTables(false));
   elements.randomTables.addEventListener("change", updateTablesDisabledState);
   elements.startButton.addEventListener("click", startQuiz);
+  elements.downloadHtmlButton.addEventListener("click", downloadStandaloneHtml);
+  elements.createGameButton.addEventListener("click", openGameModal);
+  elements.closeGameModalButton.addEventListener("click", closeGameModal);
+  elements.cancelGameButton.addEventListener("click", closeGameModal);
+  elements.downloadGameButton.addEventListener("click", downloadSelectedGame);
+  elements.gameModal.addEventListener("click", (event) => {
+    if (event.target === elements.gameModal) closeGameModal();
+    const card = event.target.closest("[data-game-type]");
+    if (card) selectGameType(card.dataset.gameType);
+  });
   elements.submitButton.addEventListener("click", submitCurrentAnswer);
   elements.nextButton.addEventListener("click", goToNextQuestion);
   elements.finishEarlyButton.addEventListener("click", () => finishQuiz("Тренировка завершена досрочно"));
@@ -145,6 +170,476 @@ function updateTablesDisabledState() {
   elements.tablesHint.textContent = disabled
     ? "Для каждого примера таблица будет выбрана случайно."
     : "Выберите хотя бы одну таблицу.";
+}
+
+function applyPresetSettings(preset) {
+  if (!preset || typeof preset !== "object") return;
+
+  elements.randomTables.checked = Boolean(preset.randomTables);
+  elements.questionCount.value = preset.count ?? 15;
+  elements.minFactor.value = preset.minFactor ?? 1;
+  elements.maxFactor.value = preset.maxFactor ?? 10;
+  elements.timeLimit.value = String(preset.timeLimit ?? 0);
+  elements.instantFeedback.checked = preset.instantFeedback !== false;
+  elements.secondAttempt.checked = preset.secondAttempt !== false;
+  elements.shuffleQuestions.checked = preset.shuffle !== false;
+
+  const presetTables = new Set((preset.tables || []).map(Number));
+  elements.tablesGrid.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    input.checked = presetTables.has(Number(input.value));
+  });
+
+  const presetTypes = new Set(preset.types || []);
+  document.querySelectorAll('#typesGrid input[type="checkbox"]').forEach((input) => {
+    input.checked = presetTypes.has(input.value);
+  });
+
+  updateTablesDisabledState();
+}
+
+function downloadStandaloneHtml() {
+  const settings = getSettings();
+  const error = validateSettings(settings);
+  elements.setupError.textContent = error;
+  if (error) return;
+
+  const clone = document.documentElement.cloneNode(true);
+  const presetScript = clone.querySelector("#trainerPreset");
+  const safePreset = JSON.stringify(settings).replaceAll("<", "\\u003c");
+
+  if (presetScript) {
+    presetScript.textContent =
+      `window.TRAINER_PRESET = ${safePreset}; window.TRAINER_STUDENT_FILE = true;`;
+  }
+
+  const setupScreen = clone.querySelector("#setupScreen");
+  const quizScreen = clone.querySelector("#quizScreen");
+  const resultsScreen = clone.querySelector("#resultsScreen");
+  if (setupScreen) setupScreen.classList.remove("hidden");
+  if (quizScreen) quizScreen.classList.add("hidden");
+  if (resultsScreen) resultsScreen.classList.add("hidden");
+
+  clone.querySelectorAll("#tablesGrid, #historyContent, #answerArea, #visualArea, #tableResults, #mistakesList")
+    .forEach((node) => { node.innerHTML = ""; });
+
+  const feedback = clone.querySelector("#feedback");
+  if (feedback) {
+    feedback.textContent = "";
+    feedback.className = "feedback";
+  }
+
+  const setupError = clone.querySelector("#setupError");
+  if (setupError) setupError.textContent = "";
+
+  const title = clone.querySelector("title");
+  if (title) title.textContent = "Тренажёр по таблице умножения — задание";
+
+  const html = `<!DOCTYPE html>\n${clone.outerHTML}`;
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const tablesPart = settings.randomTables ? "random" : settings.tables.join("-");
+
+  link.href = url;
+  link.download = `trenazher-tablica-${tablesPart}-${settings.count}-primerov.html`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+
+  elements.setupError.textContent = "HTML-файл готов. Его можно отправить ученику.";
+  elements.setupError.classList.add("success-message");
+  window.setTimeout(() => {
+    elements.setupError.textContent = "";
+    elements.setupError.classList.remove("success-message");
+  }, 3500);
+}
+
+
+function openGameModal() {
+  const settings = getSettings();
+  const error = validateSettings(settings);
+  elements.setupError.textContent = error;
+  if (error) return;
+
+  selectGameType(state.selectedGameType || "race");
+  elements.gameModal.classList.remove("hidden");
+  elements.gameModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+  elements.closeGameModalButton.focus();
+}
+
+function closeGameModal() {
+  elements.gameModal.classList.add("hidden");
+  elements.gameModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+}
+
+function selectGameType(type) {
+  const allowed = ["race", "tower", "pinata"];
+  state.selectedGameType = allowed.includes(type) ? type : "race";
+
+  elements.gameModal.querySelectorAll("[data-game-type]").forEach((card) => {
+    const selected = card.dataset.gameType === state.selectedGameType;
+    card.classList.toggle("selected", selected);
+    card.setAttribute("aria-pressed", String(selected));
+  });
+
+  const settings = getSettings();
+  const messages = {
+    race: `Гонка получит ${settings.count} заданий. Трасса: летнее стандартное шоссе.`,
+    tower: "Башня рассчитана только на 9 заданий. В игру будут добавлены ровно 9 примеров по текущим настройкам.",
+    pinata: "Пиньята рассчитана только на 5 заданий. В игру будут добавлены ровно 5 примеров по текущим настройкам."
+  };
+  const labels = {
+    race: "Скачать игру «Гонка»",
+    tower: "Скачать игру «Башня»",
+    pinata: "Скачать игру «Пиньята»"
+  };
+
+  elements.gameLimitWarning.textContent = messages[state.selectedGameType];
+  elements.gameLimitWarning.classList.toggle("limit-warning", state.selectedGameType !== "race");
+  elements.downloadGameButton.textContent = labels[state.selectedGameType];
+  elements.gameTemplateStatus.textContent = "";
+}
+
+async function downloadSelectedGame() {
+  const settings = getSettings();
+  const error = validateSettings(settings);
+  if (error) {
+    elements.gameTemplateStatus.textContent = error;
+    return;
+  }
+
+  if (!window.GAME_TEMPLATE_BASE64?.[state.selectedGameType]) {
+    elements.gameTemplateStatus.textContent = "Шаблон игры не найден.";
+    return;
+  }
+
+  const originalText = elements.downloadGameButton.textContent;
+  elements.downloadGameButton.disabled = true;
+  elements.downloadGameButton.textContent = "Подготавливаю игру…";
+  elements.gameTemplateStatus.textContent = "Создаю задания и собираю один HTML-файл.";
+
+  try {
+    const html = await buildGameHtml(state.selectedGameType, settings);
+    const fileNames = {
+      race: "tablica-umnozheniya-gonka.html",
+      tower: "tablica-umnozheniya-bashnya-9-zadaniy.html",
+      pinata: "tablica-umnozheniya-pinyata-5-zadaniy.html"
+    };
+    triggerHtmlDownload(html, fileNames[state.selectedGameType]);
+    elements.gameTemplateStatus.textContent = "Игра готова. HTML-файл можно отправить ученику.";
+  } catch (error) {
+    console.error(error);
+    elements.gameTemplateStatus.textContent = `Не удалось создать игру: ${error.message || error}`;
+  } finally {
+    elements.downloadGameButton.disabled = false;
+    elements.downloadGameButton.textContent = originalText;
+  }
+}
+
+async function buildGameHtml(type, settings) {
+  const counts = { race: settings.count, tower: 9, pinata: 5 };
+  const count = counts[type];
+  const generated = generateQuestions({ ...settings, count });
+  const questions = generated.map(toUniversalGameQuestion);
+  const template = decodeBase64Utf8(window.GAME_TEMPLATE_BASE64[type]);
+
+  if (type === "race") return buildRaceGameHtml(template, questions);
+  if (type === "tower") return buildTowerGameHtml(template, questions, settings);
+  return buildPinataGameHtml(template, questions);
+}
+
+function toUniversalGameQuestion(question) {
+  const rawChoices = question.choices
+    ? question.choices.map((choice) => ({ label: String(choice.label), value: choice.value }))
+    : buildGameChoices(question.correctAnswer, question.table, question.factor);
+
+  const correctIndex = rawChoices.findIndex((choice) => answersEqual(choice.value, question.correctAnswer));
+  const safeCorrectIndex = correctIndex >= 0 ? correctIndex : 0;
+
+  return {
+    prompt: question.type === "visual" ? `${question.table} × ${question.factor} = ?` : question.prompt,
+    options: rawChoices.map((choice) => choice.label),
+    correctIndex: safeCorrectIndex,
+    correctLabel: rawChoices[safeCorrectIndex]?.label ?? formatAnswer(question.correctAnswer)
+  };
+}
+
+function buildGameChoices(correctAnswer, table, factor) {
+  if (typeof correctAnswer === "boolean") {
+    return [
+      { label: "Верно", value: true },
+      { label: "Неверно", value: false }
+    ];
+  }
+  if ([">", "<", "="].includes(correctAnswer)) {
+    return [">", "<", "="].map((value) => ({ label: value, value }));
+  }
+
+  return buildNumericChoices(Number(correctAnswer), table, factor)
+    .map((choice) => ({ label: choice.label, value: choice.value }));
+}
+
+function buildRaceGameHtml(template, questions) {
+  const summerRoadside = svgDataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="420" height="1000" viewBox="0 0 420 1000">
+      <defs><linearGradient id="g" x2="0" y2="1"><stop stop-color="#83d65d"/><stop offset="1" stop-color="#3c9b43"/></linearGradient></defs>
+      <rect width="420" height="1000" fill="url(#g)"/>
+      <path d="M0 0h55v1000H0z" fill="#d6bf7a" opacity=".72"/>
+      <g fill="#1f7137"><circle cx="150" cy="90" r="42"/><circle cx="290" cy="220" r="55"/><circle cx="185" cy="410" r="48"/><circle cx="315" cy="610" r="58"/><circle cx="150" cy="810" r="52"/></g>
+      <g fill="#f7e36a"><circle cx="90" cy="170" r="8"/><circle cx="225" cy="320" r="7"/><circle cx="110" cy="560" r="8"/><circle cx="260" cy="760" r="7"/><circle cx="350" cy="900" r="8"/></g>
+    </svg>`);
+
+  const playerCars = [
+    ["Красная машина", "#ef4444"],
+    ["Синяя машина", "#3b82f6"],
+    ["Жёлтая машина", "#facc15"]
+  ].map(([name, color], index) => ({
+    id: `summer_player_${index}`,
+    name,
+    src: carSvgDataUrl(color, "#e9f3ff"),
+    scale: 1,
+    rotation: 0
+  }));
+
+  const trafficCars = [
+    ["Легковая", "#8b5cf6"],
+    ["Такси", "#f59e0b"],
+    ["Автобус", "#22c55e"]
+  ].map(([name, color], index) => ({
+    id: `summer_traffic_${index}`,
+    name,
+    src: carSvgDataUrl(color, "#dff4ff"),
+    scale: index === 2 ? 0.86 : 0.74,
+    rotation: 0
+  }));
+
+  const config = {
+    language: "ru",
+    title: "Гонка по таблице умножения",
+    instruction: "Едь по летнему шоссе, собирай бонусы и отвечай на задания по таблице умножения.",
+    maxLives: 5,
+    lifeScoreStep: 100,
+    starPoints: 10,
+    forceMode: "on",
+    speedMultiplier: 1,
+    difficultyMode: "teacher",
+    fixedLevel: "easy",
+    interfaceTheme: "classic",
+    useLatex: false,
+    questionNeonEnabled: true,
+    questionNeonColor: "#46d6ff",
+    questionPlateColor: "#101b31",
+    levels: { easy: { forceAfter: 18 }, medium: { forceAfter: 14 }, hard: { forceAfter: 10 } },
+    trackId: "highway",
+    customTrack: "",
+    environmentId: "meadow",
+    customEnvironment: summerRoadside,
+    enabledPlayerIds: [],
+    customPlayers: playerCars,
+    playerSelectionExplicit: true,
+    enabledTrafficIds: [],
+    customTraffic: trafficCars,
+    trafficSelectionExplicit: true,
+    bonusImage: starSvgDataUrl(),
+    bonusRotate: true,
+    tasks: questions.map((question, index) => ({
+      id: `mult_${index + 1}`,
+      level: "easy",
+      type: "choice",
+      question: question.prompt,
+      answers: question.options,
+      correct: question.correctIndex,
+      accepts: [],
+      explanation: `Правильный ответ: ${question.correctLabel}`,
+      image: "",
+      audio: "",
+      font: "",
+      fontSize: 34,
+      textColor: "#ffffff"
+    }))
+  };
+
+  const safeConfig = safeJson(config);
+  if (!template.includes("const EMBEDDED_CONFIG = null;")) {
+    throw new Error("В шаблоне гонки не найдено место для конфигурации.");
+  }
+  return template.replace("const EMBEDDED_CONFIG = null;", `const EMBEDDED_CONFIG = ${safeConfig};`);
+}
+
+function buildTowerGameHtml(template, questions, settings) {
+  const background = svgDataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+      <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#76c8ff"/><stop offset=".7" stop-color="#dff4ff"/><stop offset="1" stop-color="#a7d878"/></linearGradient></defs>
+      <rect width="1600" height="900" fill="url(#sky)"/>
+      <circle cx="1320" cy="130" r="78" fill="#ffe77a"/>
+      <path d="M0 690 Q250 590 500 700 T1000 675 T1600 680 V900 H0Z" fill="#68ad5a"/>
+      <path d="M0 760 Q260 660 550 770 T1120 745 T1600 750 V900 H0Z" fill="#3d8748"/>
+    </svg>`);
+  const blockFiles = Array.from({ length: 9 }, (_, index) => towerBlockSvgDataUrl(index + 1));
+  const config = {
+    title: "Башня умножения",
+    useRepoBg: false,
+    bgDataUrl: background,
+    timer: { enabled: settings.timeLimit > 0, seconds: settings.timeLimit > 0 ? Math.max(10, Math.round(settings.timeLimit / 9)) : 30 },
+    useImages: true,
+    useLatex: false,
+    instruction: {
+      text: "Построй башню из 9 этажей. Ответь правильно — и блок станет новым этажом.",
+      color: "#f2d37a",
+      glow: true
+    },
+    feedback: { text: "Башня построена! Таблица умножения становится крепче." },
+    questions: questions.slice(0, 9).map((question) => ({
+      type: "choice",
+      prompt: question.prompt,
+      options: question.options,
+      correctIndices: [question.correctIndex],
+      seconds: null,
+      image: "",
+      audio: "",
+      font: "",
+      fontSize: 30
+    }))
+  };
+
+  let output = injectEmbeddedConfig(template, config, "<script>\nwindow.__EMBEDDED_CFG__=");
+  output = output.replace('const BG_FILE = "1.png";', `const BG_FILE = ${JSON.stringify(background)};`);
+  output = output.replace(
+    'const BLOCK_FILES = ["3.png","4.png","5.png","6.png","7.png","8.png","9.png","10.png","11.png"];',
+    `const BLOCK_FILES = ${JSON.stringify(blockFiles)};`
+  );
+  return output;
+}
+
+function buildPinataGameHtml(template, questions) {
+  const background = svgDataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+      <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#19104b"/><stop offset=".55" stop-color="#31227b"/><stop offset="1" stop-color="#0f6f87"/></linearGradient></defs>
+      <rect width="1600" height="900" fill="url(#bg)"/>
+      <g fill="#ffd54a" opacity=".8"><circle cx="180" cy="140" r="9"/><circle cx="470" cy="90" r="7"/><circle cx="1280" cy="170" r="10"/><circle cx="1420" cy="480" r="8"/><circle cx="280" cy="690" r="9"/></g>
+      <path d="M0 760 Q300 680 600 765 T1200 750 T1600 760 V900 H0Z" fill="#173f61" opacity=".9"/>
+    </svg>`);
+  const stages = Array.from({ length: 6 }, (_, index) => pinataStageSvgDataUrl(index));
+  const config = {
+    title: "Пиньята умножения",
+    titleFont: "",
+    titleFontSize: 34,
+    useLatex: false,
+    bgDataUrl: background,
+    startImage: stages[0],
+    images: stages,
+    winText: "Молодец! Пиньята открыта!",
+    instruction: {
+      text: "Ответь правильно и ударь по пиньяте. Всего 5 заданий.",
+      color: "#ffb703",
+      glow: true
+    },
+    questions: questions.slice(0, 5).map((question) => ({
+      type: "choice",
+      prompt: question.prompt,
+      options: question.options,
+      correctIndices: [question.correctIndex],
+      font: "",
+      fontSize: 24,
+      image: "",
+      audio: ""
+    }))
+  };
+  let output = injectEmbeddedConfig(template, config, "<script>\nwindow.__EMBEDDED_CFG__=");
+  output = output.replace("  function runGame(cfg, mount){", "  function runGame(cfg, mount){\n    document.title = cfg.title || \"Пиньята умножения\";");
+  return output;
+}
+
+function injectEmbeddedConfig(template, config) {
+  const safeConfig = safeJson(config);
+  const mainScriptMarker = "<script>\n(() => {";
+  if (!template.includes(mainScriptMarker)) {
+    throw new Error("В шаблоне игры не найден основной скрипт.");
+  }
+  return template.replace(mainScriptMarker, `<script>window.__EMBEDDED_CFG__=${safeConfig};<\/script>\n${mainScriptMarker}`);
+}
+
+function safeJson(value) {
+  return JSON.stringify(value).replaceAll("<", "\\u003c").replaceAll("\u2028", "\\u2028").replaceAll("\u2029", "\\u2029");
+}
+
+function decodeBase64Utf8(base64) {
+  const binary = atob(base64);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function triggerHtmlDownload(html, fileName) {
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function svgDataUrl(svg) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.trim())}`;
+}
+
+function carSvgDataUrl(bodyColor, glassColor) {
+  return svgDataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="180" height="300" viewBox="0 0 180 300">
+      <defs><linearGradient id="b" x2="1" y2="1"><stop stop-color="${bodyColor}"/><stop offset="1" stop-color="#111827"/></linearGradient></defs>
+      <rect x="29" y="24" width="122" height="252" rx="42" fill="url(#b)" stroke="#ffffff" stroke-opacity=".35" stroke-width="5"/>
+      <path d="M48 70 Q90 34 132 70 L139 126 H41Z" fill="${glassColor}" opacity=".92"/>
+      <path d="M44 170 H136 L126 238 H54Z" fill="#0f172a" opacity=".48"/>
+      <rect x="18" y="70" width="22" height="63" rx="10" fill="#111827"/><rect x="140" y="70" width="22" height="63" rx="10" fill="#111827"/>
+      <rect x="18" y="186" width="22" height="63" rx="10" fill="#111827"/><rect x="140" y="186" width="22" height="63" rx="10" fill="#111827"/>
+      <circle cx="55" cy="50" r="10" fill="#fff8b5"/><circle cx="125" cy="50" r="10" fill="#fff8b5"/>
+      <rect x="55" y="253" width="70" height="10" rx="5" fill="#ff5d6c"/>
+    </svg>`);
+}
+
+function starSvgDataUrl() {
+  return svgDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><path d="M80 8l20 44 48 5-36 33 10 48-42-24-42 24 10-48-36-33 48-5z" fill="#ffd54a" stroke="#fff6b7" stroke-width="8"/></svg>`);
+}
+
+function towerBlockSvgDataUrl(number) {
+  const colors = ["#e95d5d", "#f59e0b", "#eab308", "#65a30d", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"];
+  const color = colors[(number - 1) % colors.length];
+  return svgDataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="520" height="180" viewBox="0 0 520 180">
+      <defs><linearGradient id="g" x2="0" y2="1"><stop stop-color="#ffffff" stop-opacity=".35"/><stop offset="1" stop-color="#000000" stop-opacity=".18"/></linearGradient></defs>
+      <path d="M24 30 Q24 12 44 12 H476 Q496 12 496 30 V145 Q496 166 474 166 H46 Q24 166 24 145Z" fill="${color}" stroke="#fff" stroke-opacity=".65" stroke-width="6"/>
+      <path d="M30 35 H490 V150 H30Z" fill="url(#g)"/>
+      <text x="260" y="116" text-anchor="middle" font-family="Arial,sans-serif" font-size="82" font-weight="900" fill="#fff" opacity=".95">${number}</text>
+    </svg>`);
+}
+
+function pinataStageSvgDataUrl(stage) {
+  const damage = Math.min(5, Math.max(0, stage));
+  const bodyOpacity = 1 - damage * 0.07;
+  const crackPaths = Array.from({ length: damage }, (_, index) => {
+    const x = 76 + index * 18;
+    return `<path d="M${x} 92 l-12 20 18 15-14 24" fill="none" stroke="#3b1b52" stroke-width="5" stroke-linecap="round"/>`;
+  }).join("");
+  const candies = stage >= 5
+    ? `<g><circle cx="38" cy="195" r="12" fill="#ffd54a"/><rect x="202" y="185" width="23" height="23" rx="5" fill="#46d6ff"/><circle cx="120" cy="222" r="11" fill="#ff5d8f"/><path d="M170 210l12 18-22 3z" fill="#6ee7b7"/></g>`
+    : "";
+  return svgDataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="260" height="280" viewBox="0 0 260 280">
+      <path d="M130 5v44" stroke="#f5e7c3" stroke-width="8"/>
+      <g opacity="${bodyOpacity}">
+        <path d="M69 72 Q130 32 191 72 L208 147 Q195 204 130 211 Q65 204 52 147Z" fill="#ff5d8f" stroke="#fff" stroke-opacity=".55" stroke-width="6"/>
+        <path d="M62 105 H198" stroke="#ffd54a" stroke-width="21"/><path d="M57 143 H203" stroke="#46d6ff" stroke-width="21"/><path d="M69 178 H191" stroke="#7ddc6f" stroke-width="21"/>
+        <path d="M84 76 L52 42 L39 92Z" fill="#8b5cf6"/><path d="M176 76 L208 42 L221 92Z" fill="#8b5cf6"/>
+        <circle cx="105" cy="102" r="8" fill="#222"/><circle cx="155" cy="102" r="8" fill="#222"/><path d="M111 126 Q130 142 149 126" fill="none" stroke="#222" stroke-width="5" stroke-linecap="round"/>
+        ${crackPaths}
+      </g>
+      ${candies}
+    </svg>`);
 }
 
 function getSettings() {

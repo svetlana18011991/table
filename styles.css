@@ -708,3 +708,136 @@ hr {
     flex-direction: column;
   }
 }
+
+
+.student-banner {
+  margin-bottom: 20px;
+  border: 1px solid var(--primary);
+  border-radius: 16px;
+  background: var(--primary-soft);
+  color: var(--text);
+  padding: 14px 18px;
+  font-weight: 750;
+}
+
+.download-html-button {
+  margin-top: 10px;
+}
+
+.error-message.success-message {
+  color: var(--success);
+}
+
+
+body.modal-open { overflow: hidden; }
+
+.game-create-button {
+  margin-top: 10px;
+  background: linear-gradient(135deg, var(--primary), #7c3aed);
+  color: #fff;
+  border: 0;
+}
+
+.game-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(7, 12, 24, 0.72);
+  backdrop-filter: blur(9px);
+}
+
+.game-modal-dialog {
+  width: min(900px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--card);
+  box-shadow: 0 28px 100px rgba(0, 0, 0, 0.35);
+  padding: clamp(20px, 4vw, 32px);
+}
+
+.game-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.game-modal-head h2 { margin-bottom: 6px; }
+.game-modal-head p { margin: 0; color: var(--muted); }
+
+.game-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.game-choice-card {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+  background: var(--card);
+  color: var(--text);
+  text-align: left;
+}
+
+.game-choice-card:hover { transform: translateY(-2px); }
+.game-choice-card.selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.game-choice-icon { font-size: 2.25rem; line-height: 1; }
+.game-choice-card strong { margin-top: 16px; font-size: 1.12rem; }
+.game-choice-card span { margin-top: 7px; color: var(--muted); font-size: 0.9rem; line-height: 1.45; }
+.game-choice-card small { margin-top: auto; padding-top: 16px; color: var(--primary); font-weight: 800; }
+
+.game-warning {
+  margin: 18px 0 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: var(--primary-soft);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.game-warning.limit-warning {
+  border-color: rgba(198, 62, 79, 0.32);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.game-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.game-template-status {
+  flex: 1 1 260px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 760px) {
+  .game-choice-grid { grid-template-columns: 1fr; }
+  .game-choice-card { min-height: 150px; }
+  .game-modal-actions { align-items: stretch; flex-direction: column; }
+  .game-modal-actions button { width: 100%; }
+  .game-template-status { flex-basis: auto; }
+}

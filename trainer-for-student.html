@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Настраиваемый тренажёр по таблице умножения с игровыми режимами." />
-  <title>Тренажёр по таблице умножения</title>
+  <title>Тренажёр по таблице умножения — задание</title>
   <style id="trainerStyles">
 :root {
   color-scheme: light;
@@ -1086,7 +1086,7 @@ body.modal-open { overflow: hidden; }
   </template>
 
   
-  <script id="trainerPreset">window.TRAINER_PRESET = null; window.TRAINER_STUDENT_FILE = false;</script>
+  <script id="trainerPreset">window.TRAINER_PRESET = {"randomTables": false, "tables": [5, 6], "count": 15, "minFactor": 1, "maxFactor": 10, "timeLimit": 0, "instantFeedback": true, "secondAttempt": true, "shuffle": true, "types": ["direct", "reversed", "missing", "division", "choice", "boolean"]}; window.TRAINER_STUDENT_FILE = true;</script>
   <script id="gameTemplates">
 // Embedded game mechanics supplied for this project.
 window.GAME_TEMPLATE_BASE64 = {

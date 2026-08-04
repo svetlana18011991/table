@@ -1,4 +1,11 @@
+const TRAINER_PASSWORD = "счет";
+
 const elements = {
+  passwordGate: document.getElementById("passwordGate"),
+  passwordForm: document.getElementById("passwordForm"),
+  passwordInput: document.getElementById("passwordInput"),
+  passwordError: document.getElementById("passwordError"),
+  unlockButton: document.getElementById("unlockButton"),
   setupScreen: document.getElementById("setupScreen"),
   quizScreen: document.getElementById("quizScreen"),
   resultsScreen: document.getElementById("resultsScreen"),
@@ -89,11 +96,46 @@ function init() {
   bindEvents();
   loadTheme();
   renderHistory();
+  showPasswordGate();
+}
+
+function showPasswordGate() {
+  document.body.classList.add("trainer-locked");
+  elements.passwordGate.classList.remove("hidden");
+  elements.passwordInput.value = "";
+  elements.passwordError.textContent = "";
+  window.setTimeout(() => elements.passwordInput.focus(), 50);
+}
+
+function normalizeTrainerPassword(value) {
+  return String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("ru-RU")
+    .replaceAll("ё", "е");
+}
+
+function unlockTrainer(event) {
+  event.preventDefault();
+  const enteredPassword = normalizeTrainerPassword(elements.passwordInput.value);
+  const expectedPassword = normalizeTrainerPassword(TRAINER_PASSWORD);
+
+  if (enteredPassword !== expectedPassword) {
+    elements.passwordError.textContent = "Неверный пароль. Попробуйте ещё раз.";
+    elements.passwordInput.select();
+    elements.passwordInput.focus();
+    return;
+  }
+
+  elements.passwordError.textContent = "";
+  elements.passwordGate.classList.add("hidden");
+  document.body.classList.remove("trainer-locked");
 
   if (window.TRAINER_STUDENT_FILE) {
-    elements.studentFileBanner.textContent = "Задание подготовлено учителем. Тренировка запускается…";
+    elements.studentFileBanner.textContent = "Пароль принят. Задание запускается…";
     elements.studentFileBanner.classList.remove("hidden");
-    window.setTimeout(() => startQuiz(), 0);
+    window.setTimeout(() => startQuiz(), 100);
+  } else {
+    elements.startButton.focus();
   }
 }
 
@@ -111,6 +153,7 @@ function buildTableControls() {
 }
 
 function bindEvents() {
+  elements.passwordForm.addEventListener("submit", unlockTrainer);
   elements.selectAllTables.addEventListener("click", () => setAllTables(true));
   elements.clearTables.addEventListener("click", () => setAllTables(false));
   elements.randomTables.addEventListener("change", updateTablesDisabledState);

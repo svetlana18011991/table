@@ -1560,6 +1560,187 @@ hr { border-color: var(--border); }
   .access-features span { margin: 0; }
 }
 
+
+/* =========================================
+   CREATOR BRAND · Шкатулка интерактивов
+   ========================================= */
+.creator-brand-link {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  padding: 9px 12px 9px 9px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 18px;
+  color: inherit;
+  text-decoration: none;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.095), rgba(255,255,255,.025)),
+    rgba(8, 12, 22, .28);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 14px 34px rgba(0,0,0,.16);
+  backdrop-filter: blur(14px) saturate(125%);
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
+  transition: transform .24s ease, border-color .24s ease, background .24s ease, box-shadow .24s ease;
+}
+.creator-brand-link:hover {
+  transform: translateY(-2px);
+  border-color: rgba(226,184,104,.34);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.13), rgba(226,184,104,.055)),
+    rgba(8, 12, 22, .34);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 20px 44px rgba(0,0,0,.22),
+    0 0 0 1px rgba(226,184,104,.06);
+}
+.creator-logo-shell {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(240,209,142,.22), rgba(155,140,255,.16));
+  box-shadow:
+    0 0 0 1px rgba(239,205,132,.34),
+    0 0 18px rgba(226,184,104,.20),
+    inset 0 1px 0 rgba(255,255,255,.16);
+  animation: creatorLogoPulse 3.2s ease-in-out infinite;
+}
+.creator-logo-shell::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 1px solid rgba(226,184,104,.16);
+  border-radius: inherit;
+  opacity: .45;
+  animation: creatorLogoHalo 3.2s ease-in-out infinite;
+}
+.creator-logo {
+  position: relative;
+  z-index: 2;
+  width: 42px;
+  height: 42px;
+  display: block;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #0d1322;
+}
+.creator-logo-fallback {
+  position: absolute;
+  z-index: 1;
+  color: #f0d18e;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+.creator-brand-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.15;
+}
+.creator-brand-copy strong {
+  overflow: hidden;
+  color: #f8f6f0;
+  font-size: .86rem;
+  font-weight: 850;
+  letter-spacing: -.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.creator-brand-copy span {
+  margin-top: 4px;
+  color: #b4bdcf;
+  font-size: .69rem;
+  font-weight: 650;
+}
+.creator-brand-copy small {
+  margin-top: 4px;
+  color: #d9b86f;
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.creator-brand-access {
+  align-self: flex-start;
+  max-width: min(100%, 410px);
+}
+.creator-brand-editor {
+  max-width: 350px;
+  padding: 7px 10px 7px 7px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card-solid) 78%, transparent);
+}
+.creator-brand-editor .creator-logo-shell {
+  width: 42px;
+  height: 42px;
+  flex-basis: 42px;
+}
+.creator-brand-editor .creator-logo {
+  width: 36px;
+  height: 36px;
+}
+.creator-brand-editor .creator-brand-copy strong {
+  color: var(--text);
+  font-size: .78rem;
+}
+.creator-brand-editor .creator-brand-copy span { color: var(--muted); }
+.editor-heading-stack {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.access-showcase .access-brand {
+  margin-top: 18px;
+}
+@keyframes creatorLogoPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 1px rgba(239,205,132,.30), 0 0 14px rgba(226,184,104,.16), inset 0 1px 0 rgba(255,255,255,.16);
+  }
+  50% {
+    transform: scale(1.055);
+    box-shadow: 0 0 0 1px rgba(239,205,132,.52), 0 0 27px rgba(226,184,104,.34), inset 0 1px 0 rgba(255,255,255,.22);
+  }
+}
+@keyframes creatorLogoHalo {
+  0%, 100% { transform: scale(.96); opacity: .18; }
+  50% { transform: scale(1.08); opacity: .62; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .creator-logo-shell,
+  .creator-logo-shell::after { animation: none; }
+}
+@media (max-width: 980px) {
+  .app-header { align-items: flex-start; }
+  .header-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .creator-brand-editor { max-width: 290px; }
+}
+@media (max-width: 720px) {
+  .app-header { flex-direction: column; }
+  .header-actions { width: 100%; justify-content: space-between; }
+  .creator-brand-editor { max-width: calc(100% - 104px); }
+  .creator-brand-copy strong { font-size: .76rem; }
+  .creator-brand-copy small { display: none; }
+}
+@media (max-width: 520px) {
+  .creator-brand-access { width: 100%; }
+  .creator-brand-link { gap: 10px; padding-right: 10px; }
+  .creator-logo-shell { width: 43px; height: 43px; flex-basis: 43px; }
+  .creator-logo { width: 37px; height: 37px; }
+  .creator-brand-copy strong { font-size: .72rem; }
+  .creator-brand-copy span { font-size: .62rem; }
+  .creator-brand-editor { max-width: calc(100% - 96px); }
+}
+
 </style>
 </head>
 <body class="trainer-locked">
@@ -1568,6 +1749,17 @@ hr { border-color: var(--border); }
     <div class="access-orb access-orb-two" aria-hidden="true"></div>
     <div class="access-shell">
       <section class="access-showcase" aria-label="О тренажёре">
+        <a class="creator-brand-link creator-brand-access" href="https://t.me/interactiv_matematika" target="_blank" rel="noopener noreferrer" aria-label="Шкатулка математических интерактивов — открыть Telegram-страницу Светланы Быковой">
+          <span class="creator-logo-shell">
+            <span class="creator-logo-fallback" aria-hidden="true">×</span>
+            <img class="creator-logo" src="logo.png" alt="Логотип Шкатулки математических интерактивов" onerror="this.style.display='none'" />
+          </span>
+          <span class="creator-brand-copy">
+            <strong>Шкатулка математических интерактивов</strong>
+            <span>Светлана Быкова</span>
+            <small>Авторский образовательный проект</small>
+          </span>
+        </a>
         <div class="access-brand">
           <div class="brand-mark" aria-hidden="true">×</div>
           <div>
@@ -1613,15 +1805,28 @@ hr { border-color: var(--border); }
 
 <main class="app-shell">
     <header class="app-header">
-      <div class="app-brand-lockup">
-        <div class="brand-mark app-brand-mark" aria-hidden="true">×</div>
-        <div>
-          <p class="eyebrow">Math Atelier · Teacher Studio</p>
-          <h1>Таблица умножения</h1>
-          <p class="header-subtitle">Создавайте точные тренировки и превращайте практику в игру.</p>
+      <div class="editor-heading-stack">
+        <div class="app-brand-lockup">
+          <div class="brand-mark app-brand-mark" aria-hidden="true">×</div>
+          <div>
+            <p class="eyebrow">Math Atelier · Teacher Studio</p>
+            <h1>Таблица умножения</h1>
+            <p class="header-subtitle">Создавайте точные тренировки и превращайте практику в игру.</p>
+          </div>
         </div>
       </div>
       <div class="header-actions">
+        <a class="creator-brand-link creator-brand-editor" href="https://t.me/interactiv_matematika" target="_blank" rel="noopener noreferrer" aria-label="Шкатулка математических интерактивов — открыть Telegram-страницу Светланы Быковой">
+          <span class="creator-logo-shell">
+            <span class="creator-logo-fallback" aria-hidden="true">×</span>
+            <img class="creator-logo" src="logo.png" alt="Логотип Шкатулки математических интерактивов" onerror="this.style.display='none'" />
+          </span>
+          <span class="creator-brand-copy">
+            <strong>Шкатулка математических интерактивов</strong>
+            <span>Светлана Быкова</span>
+            <small>Открыть авторский канал</small>
+          </span>
+        </a>
         <span class="online-pill"><i></i> Тренажёр готов</span>
         <button id="themeButton" class="icon-button" type="button" aria-label="Переключить тему" title="Переключить оформление">◐</button>
       </div>
@@ -2194,6 +2399,26 @@ async function inlineExternalResources(clone) {
     inlineScript.textContent = await response.text();
     script.replaceWith(inlineScript);
   }
+
+  const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
+  for (const image of [...clone.querySelectorAll("img[src]")]) {
+    const source = image.getAttribute("src");
+    if (!source || source.startsWith("data:") || source.startsWith("blob:")) continue;
+    try {
+      const response = await fetch(new URL(source, baseUrl));
+      if (!response.ok) continue;
+      image.setAttribute("src", await blobToDataUrl(await response.blob()));
+      image.removeAttribute("onerror");
+    } catch (error) {
+      console.warn(`Не удалось встроить изображение: ${source}`, error);
+    }
+  }
 }
 
 async function downloadStandaloneHtml() {
@@ -2312,8 +2537,8 @@ function selectGameType(type) {
   const settings = getSettings();
   const messages = {
     race: `Гонка получит ${settings.count} заданий. Используются оригинальные машины, транспорт, зелёный парк и стандартное шоссе из исходной игры.`,
-    tower: "Башня рассчитана только на 9 заданий. Будут использованы оригинальный фон и 9 изображений блоков из архива.",
-    pinata: "Пиньята рассчитана только на 5 заданий. Будут использованы оригинальный фон и стадии пиньяты из архива."
+    tower: "Башня рассчитана только на 9 заданий.",
+    pinata: "Пиньята рассчитана только на 5 заданий."
   };
   const labels = {
     race: "Скачать игру «Гонка»",

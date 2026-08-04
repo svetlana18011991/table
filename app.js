@@ -91,7 +91,9 @@ function init() {
   renderHistory();
 
   if (window.TRAINER_STUDENT_FILE) {
+    elements.studentFileBanner.textContent = "Задание подготовлено учителем. Тренировка запускается…";
     elements.studentFileBanner.classList.remove("hidden");
+    window.setTimeout(() => startQuiz(), 0);
   }
 }
 
@@ -264,7 +266,7 @@ async function downloadStandaloneHtml() {
     if (title) title.textContent = "Тренажёр по таблице умножения — задание";
 
     const html = `<!DOCTYPE html>\n${clone.outerHTML}`;
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const blob = new Blob([html], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const tablesPart = settings.randomTables ? "random" : settings.tables.join("-");
@@ -276,7 +278,7 @@ async function downloadStandaloneHtml() {
     link.remove();
     URL.revokeObjectURL(url);
 
-    elements.setupError.textContent = "HTML-файл готов. Его можно отправить ученику.";
+    elements.setupError.textContent = "HTML-файл скачан. Здесь можно сразу начать тренировку кнопкой «Начать здесь».";
     elements.setupError.classList.add("success-message");
     window.setTimeout(() => {
       elements.setupError.textContent = "";
@@ -1491,6 +1493,12 @@ function exportCsv() {
 function resetToSetup() {
   clearInterval(state.timerId);
   state.timerId = null;
+
+  if (window.TRAINER_STUDENT_FILE) {
+    window.setTimeout(() => startQuiz(), 0);
+    return;
+  }
+
   showScreen("setup");
   renderHistory();
 }

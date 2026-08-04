@@ -18,7 +18,7 @@
     </header>
 
     <section id="setupScreen" class="screen">
-      <div id="studentFileBanner" class="student-banner hidden">Настройки задания подготовлены учителем. Нажмите «Начать тренировку».</div>
+      <div id="studentFileBanner" class="student-banner hidden">Задание подготовлено учителем. Тренировка запускается автоматически.</div>
       <div class="grid two-columns">
         <article class="card">
           <h2>Настройки учителя</h2>
@@ -97,8 +97,10 @@
             <span>Перемешивать задания</span>
           </label>
 
-          <button id="startButton" class="primary-button wide" type="button">Начать тренировку</button>
-          <button id="downloadHtmlButton" class="secondary-button wide download-html-button" type="button">Скачать тренажёр для ученика (.html)</button>
+          <div class="trainer-actions" aria-label="Действия с тренировкой">
+            <button id="startButton" class="primary-button wide" type="button">▶ Начать здесь</button>
+            <button id="downloadHtmlButton" class="secondary-button wide download-html-button" type="button">⬇ Скачать ученику (.html)</button>
+          </div>
           <button id="createGameButton" class="primary-button wide game-create-button" type="button">🎮 Создать игру</button>
           <p id="setupError" class="error-message" role="alert"></p>
         </article>

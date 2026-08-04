@@ -323,7 +323,7 @@ function selectGameType(type) {
 
   const settings = getSettings();
   const messages = {
-    race: `Гонка получит ${settings.count} заданий. Код механики сохранён, трасса — летнее стандартное шоссе.`,
+    race: `Гонка получит ${settings.count} заданий. Используются оригинальные машины, транспорт, зелёный парк и стандартное шоссе из исходной игры.`,
     tower: "Башня рассчитана только на 9 заданий. Будут использованы оригинальный фон и 9 изображений блоков из архива.",
     pinata: "Пиньята рассчитана только на 5 заданий. Будут использованы оригинальный фон и стадии пиньяты из архива."
   };
@@ -365,7 +365,9 @@ async function downloadSelectedGame() {
       pinata: "tablica-umnozheniya-pinyata-5-zadaniy.html"
     };
     triggerHtmlDownload(html, fileNames[state.selectedGameType]);
-    elements.gameTemplateStatus.textContent = "Игра готова. HTML-файл можно отправить ученику.";
+    elements.gameTemplateStatus.textContent = state.selectedGameType === "race" && state.lastRaceAssetsMode === "online"
+      ? "Игра готова с оригинальным визуалом. Для загрузки машин и окружения ученику потребуется интернет."
+      : "Игра готова. HTML-файл можно отправить ученику.";
   } catch (error) {
     console.error(error);
     elements.gameTemplateStatus.textContent = `Не удалось создать игру: ${error.message || error}`;
@@ -382,7 +384,7 @@ async function buildGameHtml(type, settings) {
   const questions = generated.map(toUniversalGameQuestion);
   const template = decodeBase64Utf8(window.GAME_TEMPLATE_BASE64[type]);
 
-  if (type === "race") return buildRaceGameHtml(template, questions);
+  if (type === "race") return await buildRaceGameHtml(template, questions);
   if (type === "tower") return buildTowerGameHtml(template, questions, settings);
   return buildPinataGameHtml(template, questions);
 }
@@ -418,49 +420,18 @@ function buildGameChoices(correctAnswer, table, factor) {
     .map((choice) => ({ label: choice.label, value: choice.value }));
 }
 
-function buildRaceGameHtml(template, questions) {
-  const summerRoadside = svgDataUrl(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="420" height="1000" viewBox="0 0 420 1000">
-      <defs><linearGradient id="g" x2="0" y2="1"><stop stop-color="#83d65d"/><stop offset="1" stop-color="#3c9b43"/></linearGradient></defs>
-      <rect width="420" height="1000" fill="url(#g)"/>
-      <path d="M0 0h55v1000H0z" fill="#d6bf7a" opacity=".72"/>
-      <g fill="#1f7137"><circle cx="150" cy="90" r="42"/><circle cx="290" cy="220" r="55"/><circle cx="185" cy="410" r="48"/><circle cx="315" cy="610" r="58"/><circle cx="150" cy="810" r="52"/></g>
-      <g fill="#f7e36a"><circle cx="90" cy="170" r="8"/><circle cx="225" cy="320" r="7"/><circle cx="110" cy="560" r="8"/><circle cx="260" cy="760" r="7"/><circle cx="350" cy="900" r="8"/></g>
-    </svg>`);
-
-  const playerCars = [
-    ["Красная машина", "#ef4444"],
-    ["Синяя машина", "#3b82f6"],
-    ["Жёлтая машина", "#facc15"]
-  ].map(([name, color], index) => ({
-    id: `summer_player_${index}`,
-    name,
-    src: carSvgDataUrl(color, "#e9f3ff"),
-    scale: 1,
-    rotation: 0
-  }));
-
-  const trafficCars = [
-    ["Легковая", "#8b5cf6"],
-    ["Такси", "#f59e0b"],
-    ["Автобус", "#22c55e"]
-  ].map(([name, color], index) => ({
-    id: `summer_traffic_${index}`,
-    name,
-    src: carSvgDataUrl(color, "#dff4ff"),
-    scale: index === 2 ? 0.86 : 0.74,
-    rotation: 0
-  }));
-
+async function buildRaceGameHtml(template, questions) {
   const config = {
     language: "ru",
     title: "Гонка по таблице умножения",
-    instruction: "Едь по летнему шоссе, собирай бонусы и отвечай на задания по таблице умножения.",
+    instruction: "Выбери оригинальную машину, двигайся по летнему шоссе, собирай бонусы и выполняй задания по таблице умножения.",
     maxLives: 5,
     lifeScoreStep: 100,
     starPoints: 10,
     forceMode: "on",
     speedMultiplier: 1,
+    playerSizePercent: 105,
+    trafficSizePercent: 110,
     difficultyMode: "teacher",
     fixedLevel: "easy",
     interfaceTheme: "classic",
@@ -472,14 +443,14 @@ function buildRaceGameHtml(template, questions) {
     trackId: "highway",
     customTrack: "",
     environmentId: "meadow",
-    customEnvironment: summerRoadside,
-    enabledPlayerIds: [],
-    customPlayers: playerCars,
+    customEnvironment: "",
+    enabledPlayerIds: ["red", "blue", "yellow", "green", "pickup", "purple"],
+    customPlayers: [],
     playerSelectionExplicit: true,
-    enabledTrafficIds: [],
-    customTraffic: trafficCars,
+    enabledTrafficIds: ["taxi", "police", "ambulance", "pickup", "purple_racer", "firetruck", "school_bus"],
+    customTraffic: [],
     trafficSelectionExplicit: true,
-    bonusImage: starSvgDataUrl(),
+    bonusImage: "",
     bonusRotate: true,
     tasks: questions.map((question, index) => ({
       id: `mult_${index + 1}`,
@@ -502,7 +473,76 @@ function buildRaceGameHtml(template, questions) {
   if (!template.includes("const EMBEDDED_CONFIG = null;")) {
     throw new Error("В шаблоне гонки не найдено место для конфигурации.");
   }
-  return template.replace("const EMBEDDED_CONFIG = null;", `const EMBEDDED_CONFIG = ${safeConfig};`);
+
+  const configuredTemplate = template.replace(
+    "const EMBEDDED_CONFIG = null;",
+    `const EMBEDDED_CONFIG = ${safeConfig};`
+  );
+
+  return inlineOriginalRaceAssets(configuredTemplate);
+}
+
+const ORIGINAL_RACE_ASSET_BASE = "https://svetlana18011991.github.io/gonka/";
+const ORIGINAL_RACE_ASSET_PATHS = [
+  "assets/roadside/left_strip.png",
+  "assets/roadside/right_strip.png",
+  "assets/cars/player_modern_red.png",
+  "assets/cars/player_modern_blue.png",
+  "assets/cars/player_modern_yellow.png",
+  "assets/cars/player_modern_mint.png",
+  "assets/cars/player_modern_pickup.png",
+  "assets/cars/player_modern_turquoise.png",
+  "assets/traffic/taxi.png",
+  "assets/traffic/police.png",
+  "assets/traffic/ambulance.png",
+  "assets/traffic/pickup.png",
+  "assets/traffic/turquoise_racer.png",
+  "assets/traffic/firetruck.png",
+  "assets/traffic/school_bus.png"
+];
+
+async function inlineOriginalRaceAssets(html) {
+  let output = html;
+  let embeddedCount = 0;
+
+  const replacements = await Promise.all(
+    ORIGINAL_RACE_ASSET_PATHS.map(async (path) => {
+      const absoluteUrl = new URL(path, ORIGINAL_RACE_ASSET_BASE).href;
+
+      try {
+        const response = await fetch(absoluteUrl, { cache: "force-cache" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const dataUrl = await blobToDataUrl(await response.blob());
+        return { path, value: dataUrl, embedded: true };
+      } catch (error) {
+        console.warn(`Не удалось встроить ресурс гонки ${path}:`, error);
+        return { path, value: absoluteUrl, embedded: false };
+      }
+    })
+  );
+
+  replacements.forEach(({ path, value, embedded }) => {
+    output = output.split(path).join(value);
+    if (embedded) embeddedCount += 1;
+  });
+
+  state.lastRaceAssetsMode = embeddedCount === ORIGINAL_RACE_ASSET_PATHS.length
+    ? "embedded"
+    : "online";
+
+  return output;
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Не удалось преобразовать изображение в Base64."));
+    reader.readAsDataURL(blob);
+  });
 }
 
 function buildTowerGameHtml(template, questions, settings) {

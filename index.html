@@ -2207,9 +2207,10 @@ function init() {
 
   if (window.TRAINER_STUDENT_FILE) {
     elements.studentFileBanner.classList.remove("hidden");
+    unlockTrainer();
+  } else {
+    lockTrainer();
   }
-
-  lockTrainer();
 }
 
 function lockTrainer() {
@@ -2443,10 +2444,10 @@ async function downloadStandaloneHtml() {
     }
 
     const clonedBody = clone.querySelector("body");
-    if (clonedBody) clonedBody.classList.add("trainer-locked");
+    if (clonedBody) clonedBody.classList.remove("trainer-locked");
 
     const clonedGate = clone.querySelector("#passwordGate");
-    if (clonedGate) clonedGate.hidden = false;
+    if (clonedGate) clonedGate.hidden = true;
 
     const clonedPasswordInput = clone.querySelector("#passwordInput");
     if (clonedPasswordInput) clonedPasswordInput.value = "";

@@ -2,7 +2,12 @@ const elements = {
   passwordGate: document.getElementById("passwordGate"),
   passwordForm: document.getElementById("passwordForm"),
   passwordInput: document.getElementById("passwordInput"),
+  passwordToggle: document.getElementById("passwordToggle"),
   passwordError: document.getElementById("passwordError"),
+  heroTablesValue: document.getElementById("heroTablesValue"),
+  heroQuestionsValue: document.getElementById("heroQuestionsValue"),
+  heroTimeValue: document.getElementById("heroTimeValue"),
+  heroTypesValue: document.getElementById("heroTypesValue"),
   setupScreen: document.getElementById("setupScreen"),
   quizScreen: document.getElementById("quizScreen"),
   resultsScreen: document.getElementById("resultsScreen"),
@@ -16,6 +21,7 @@ const elements = {
   instantFeedback: document.getElementById("instantFeedback"),
   secondAttempt: document.getElementById("secondAttempt"),
   shuffleQuestions: document.getElementById("shuffleQuestions"),
+  listMode: document.getElementById("listMode"),
   startButton: document.getElementById("startButton"),
   downloadHtmlButton: document.getElementById("downloadHtmlButton"),
   createGameButton: document.getElementById("createGameButton"),
@@ -43,6 +49,12 @@ const elements = {
   submitButton: document.getElementById("submitButton"),
   nextButton: document.getElementById("nextButton"),
   finishEarlyButton: document.getElementById("finishEarlyButton"),
+  singleQuizMode: document.getElementById("singleQuizMode"),
+  listQuizMode: document.getElementById("listQuizMode"),
+  listQuestions: document.getElementById("listQuestions"),
+  listFeedback: document.getElementById("listFeedback"),
+  checkAllAnswersButton: document.getElementById("checkAllAnswersButton"),
+  finishListEarlyButton: document.getElementById("finishListEarlyButton"),
   resultTitle: document.getElementById("resultTitle"),
   scorePercent: document.getElementById("scorePercent"),
   correctStat: document.getElementById("correctStat"),
@@ -102,13 +114,15 @@ function init() {
   applyPresetSettings(window.TRAINER_PRESET);
   bindEvents();
   loadTheme();
+  updateDashboardSummary();
   renderHistory();
 
   if (window.TRAINER_STUDENT_FILE) {
     elements.studentFileBanner.classList.remove("hidden");
+    unlockTrainer();
+  } else {
+    lockTrainer();
   }
-
-  lockTrainer();
 }
 
 function lockTrainer() {
@@ -123,7 +137,12 @@ function handlePasswordSubmit(event) {
   event.preventDefault();
 
   if (normalizeAccessPassword(elements.passwordInput.value) !== normalizeAccessPassword(ACCESS_PASSWORD)) {
-    elements.passwordError.textContent = "Неверный пароль. Попробуйте ещё раз.";
+    elements.passwordError.textContent = "Код не подошёл. Проверьте написание и попробуйте снова.";
+    const passwordCard = elements.passwordForm;
+    passwordCard.classList.remove("password-shake");
+    void passwordCard.offsetWidth;
+    passwordCard.classList.add("password-shake");
+    window.setTimeout(() => passwordCard.classList.remove("password-shake"), 420);
     elements.passwordInput.select();
     elements.passwordInput.focus();
     return;
@@ -158,6 +177,13 @@ function buildTableControls() {
 
 function bindEvents() {
   elements.passwordForm.addEventListener("submit", handlePasswordSubmit);
+  elements.passwordToggle?.addEventListener("click", () => {
+    const show = elements.passwordInput.type === "password";
+    elements.passwordInput.type = show ? "text" : "password";
+    elements.passwordToggle.textContent = show ? "◌" : "◉";
+    elements.passwordToggle.setAttribute("aria-label", show ? "Скрыть пароль" : "Показать пароль");
+    elements.passwordInput.focus();
+  });
   elements.selectAllTables.addEventListener("click", () => setAllTables(true));
   elements.clearTables.addEventListener("click", () => setAllTables(false));
   elements.randomTables.addEventListener("change", updateTablesDisabledState);
@@ -175,11 +201,18 @@ function bindEvents() {
   elements.submitButton.addEventListener("click", submitCurrentAnswer);
   elements.nextButton.addEventListener("click", goToNextQuestion);
   elements.finishEarlyButton.addEventListener("click", () => finishQuiz("Тренировка завершена досрочно"));
+  elements.checkAllAnswersButton.addEventListener("click", () => submitListAnswers());
+  elements.finishListEarlyButton.addEventListener("click", () => submitListAnswers({
+    allowIncomplete: true,
+    customTitle: "Тренировка завершена досрочно"
+  }));
   elements.restartButton.addEventListener("click", resetToSetup);
   elements.retryMistakesButton.addEventListener("click", startMistakeRetry);
   elements.exportCsvButton.addEventListener("click", exportCsv);
   elements.clearHistory.addEventListener("click", clearHistory);
   elements.themeButton.addEventListener("click", toggleTheme);
+  elements.setupScreen.addEventListener("change", updateDashboardSummary);
+  elements.setupScreen.addEventListener("input", updateDashboardSummary);
 
   elements.answerArea.addEventListener("click", (event) => {
     const button = event.target.closest("[data-answer]");
@@ -192,10 +225,31 @@ function bindEvents() {
     state.selectedAnswer = parseAnswerValue(button.dataset.answer);
   });
 
+  elements.listQuestions.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-list-answer]");
+    if (!button || state.locked) return;
+
+    const card = button.closest(".list-question-card");
+    card.querySelectorAll("[data-list-answer]").forEach((item) => {
+      item.classList.remove("selected");
+    });
+    button.classList.add("selected");
+    card.classList.remove("unanswered");
+  });
+
+  elements.listQuestions.addEventListener("input", (event) => {
+    const card = event.target.closest(".list-question-card");
+    if (card) card.classList.remove("unanswered");
+  });
+
   document.addEventListener("keydown", (event) => {
     if (elements.quizScreen.classList.contains("hidden")) return;
 
     if (event.key === "Enter") {
+      if (state.settings?.listMode) {
+        if (event.ctrlKey || event.metaKey) submitListAnswers();
+        return;
+      }
       if (!elements.nextButton.classList.contains("hidden")) {
         goToNextQuestion();
       } else {
@@ -205,10 +259,26 @@ function bindEvents() {
   });
 }
 
+function updateDashboardSummary() {
+  if (!elements.heroTablesValue) return;
+  const selectedTables = [...elements.tablesGrid.querySelectorAll('input[type="checkbox"]:checked')]
+    .map((input) => input.value);
+  const selectedTypes = document.querySelectorAll('#typesGrid input[type="checkbox"]:checked').length;
+  const timeValue = Number(elements.timeLimit.value || 0);
+
+  elements.heroTablesValue.textContent = elements.randomTables.checked
+    ? "Случайно"
+    : selectedTables.length ? selectedTables.join(", ") : "Не выбраны";
+  elements.heroQuestionsValue.textContent = String(elements.questionCount.value || "—");
+  elements.heroTimeValue.textContent = timeValue ? `${Math.round(timeValue / 60)} мин` : "Свободный";
+  elements.heroTypesValue.textContent = String(selectedTypes);
+}
+
 function setAllTables(isChecked) {
   elements.tablesGrid.querySelectorAll('input[type="checkbox"]').forEach((input) => {
     input.checked = isChecked;
   });
+  updateDashboardSummary();
 }
 
 function updateTablesDisabledState() {
@@ -219,6 +289,7 @@ function updateTablesDisabledState() {
   elements.tablesHint.textContent = disabled
     ? "Для каждого примера таблица будет выбрана случайно."
     : "Выберите хотя бы одну таблицу.";
+  updateDashboardSummary();
 }
 
 function applyPresetSettings(preset) {
@@ -232,6 +303,7 @@ function applyPresetSettings(preset) {
   elements.instantFeedback.checked = preset.instantFeedback !== false;
   elements.secondAttempt.checked = preset.secondAttempt !== false;
   elements.shuffleQuestions.checked = preset.shuffle !== false;
+  elements.listMode.checked = Boolean(preset.listMode);
 
   const presetTables = new Set((preset.tables || []).map(Number));
   elements.tablesGrid.querySelectorAll('input[type="checkbox"]').forEach((input) => {
@@ -267,6 +339,26 @@ async function inlineExternalResources(clone) {
     inlineScript.textContent = await response.text();
     script.replaceWith(inlineScript);
   }
+
+  const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
+  for (const image of [...clone.querySelectorAll("img[src]")]) {
+    const source = image.getAttribute("src");
+    if (!source || source.startsWith("data:") || source.startsWith("blob:")) continue;
+    try {
+      const response = await fetch(new URL(source, baseUrl));
+      if (!response.ok) continue;
+      image.setAttribute("src", await blobToDataUrl(await response.blob()));
+      image.removeAttribute("onerror");
+    } catch (error) {
+      console.warn(`Не удалось встроить изображение: ${source}`, error);
+    }
+  }
 }
 
 async function downloadStandaloneHtml() {
@@ -291,10 +383,10 @@ async function downloadStandaloneHtml() {
     }
 
     const clonedBody = clone.querySelector("body");
-    if (clonedBody) clonedBody.classList.add("trainer-locked");
+    if (clonedBody) clonedBody.classList.remove("trainer-locked");
 
     const clonedGate = clone.querySelector("#passwordGate");
-    if (clonedGate) clonedGate.hidden = false;
+    if (clonedGate) clonedGate.hidden = true;
 
     const clonedPasswordInput = clone.querySelector("#passwordInput");
     if (clonedPasswordInput) clonedPasswordInput.value = "";
@@ -309,7 +401,7 @@ async function downloadStandaloneHtml() {
     if (quizScreen) quizScreen.classList.add("hidden");
     if (resultsScreen) resultsScreen.classList.add("hidden");
 
-    clone.querySelectorAll("#tablesGrid, #historyContent, #answerArea, #visualArea, #tableResults, #mistakesList")
+    clone.querySelectorAll("#tablesGrid, #historyContent, #answerArea, #visualArea, #listQuestions, #tableResults, #mistakesList")
       .forEach((node) => { node.innerHTML = ""; });
 
     const feedback = clone.querySelector("#feedback");
@@ -385,8 +477,8 @@ function selectGameType(type) {
   const settings = getSettings();
   const messages = {
     race: `Гонка получит ${settings.count} заданий. Используются оригинальные машины, транспорт, зелёный парк и стандартное шоссе из исходной игры.`,
-    tower: "Башня рассчитана только на 9 заданий. Будут использованы оригинальный фон и 9 изображений блоков из архива.",
-    pinata: "Пиньята рассчитана только на 5 заданий. Будут использованы оригинальный фон и стадии пиньяты из архива."
+    tower: "Башня рассчитана только на 9 заданий.",
+    pinata: "Пиньята рассчитана только на 5 заданий."
   };
   const labels = {
     race: "Скачать игру «Гонка»",
@@ -817,6 +909,7 @@ function getSettings() {
     instantFeedback: elements.instantFeedback.checked,
     secondAttempt: elements.secondAttempt.checked,
     shuffle: elements.shuffleQuestions.checked,
+    listMode: elements.listMode.checked,
     types: selectedTypes
   };
 }
@@ -864,8 +957,13 @@ function startQuiz() {
   state.retryMode = false;
 
   showScreen("quiz");
+  setQuizMode(settings.listMode);
   startTimer();
-  renderQuestion();
+  if (settings.listMode) {
+    renderQuestionList();
+  } else {
+    renderQuestion();
+  }
 }
 
 function generateQuestions(settings) {
@@ -1062,6 +1160,137 @@ function buildWrongAnswer(correct, table, factor) {
   ].filter((value) => value >= 0 && value !== correct);
 
   return randomItem(options);
+}
+
+function setQuizMode(listMode) {
+  elements.singleQuizMode.classList.toggle("hidden", Boolean(listMode));
+  elements.listQuizMode.classList.toggle("hidden", !listMode);
+  elements.quizScreen.classList.toggle("quiz-list-active", Boolean(listMode));
+}
+
+function renderQuestionList() {
+  state.locked = false;
+  state.answers = [];
+  elements.progressText.textContent = `Все задания: ${state.questions.length}`;
+  elements.progressBar.style.width = "100%";
+  elements.listFeedback.textContent = "";
+  elements.listFeedback.className = "feedback list-feedback";
+  elements.listQuestions.innerHTML = state.questions
+    .map((question, index) => renderListQuestionCard(question, index))
+    .join("");
+
+  requestAnimationFrame(() => {
+    const firstControl = elements.listQuestions.querySelector("input, button");
+    if (firstControl) firstControl.focus();
+  });
+}
+
+function renderListQuestionCard(question, index) {
+  const visual = question.visual ? renderListVisualModel(question.visual) : "";
+  const answer = question.choices
+    ? `<div class="choice-grid list-choice-grid">${question.choices.map((choice) => `
+        <button class="choice-button list-choice-button" type="button" data-list-answer='${escapeHtml(serializeAnswerValue(choice.value))}'>${escapeHtml(choice.label)}</button>
+      `).join("")}</div>`
+    : `<label class="answer-label list-answer-label">
+        Ответ
+        <input class="answer-input list-answer-input" type="number" inputmode="numeric" autocomplete="off" aria-label="Ответ на задание ${index + 1}" />
+      </label>`;
+
+  return `
+    <article class="list-question-card" data-question-index="${index}">
+      <div class="list-question-number">${index + 1}</div>
+      <div class="list-question-content">
+        <div class="list-question-meta">${escapeHtml(question.label)}</div>
+        <div class="list-question-prompt">${escapeHtml(question.prompt)}</div>
+        ${visual}
+        <div class="list-question-answer">${answer}</div>
+        <div class="list-question-result" aria-live="polite"></div>
+      </div>
+    </article>`;
+}
+
+function renderListVisualModel(visual) {
+  const totalDots = visual.rows * visual.columns;
+  if (totalDots > 120) {
+    return `<div class="list-visual-summary">${visual.rows} ряда × ${visual.columns} точек</div>`;
+  }
+
+  return `<div class="list-visual-area" style="grid-template-columns: repeat(${visual.columns}, 12px)">
+    ${Array.from({ length: totalDots }, () => '<span class="list-dot"></span>').join("")}
+  </div>`;
+}
+
+function getListAnswer(card, question) {
+  if (question.choices) {
+    const selected = card.querySelector("[data-list-answer].selected");
+    return selected ? parseAnswerValue(selected.dataset.listAnswer) : null;
+  }
+
+  const input = card.querySelector(".list-answer-input");
+  if (!input || input.value.trim() === "") return null;
+  const value = Number(input.value);
+  return Number.isNaN(value) ? null : value;
+}
+
+function submitListAnswers({ allowIncomplete = false, customTitle = "" } = {}) {
+  if (state.locked) return;
+
+  const cards = [...elements.listQuestions.querySelectorAll(".list-question-card")];
+  const responses = state.questions.map((question, index) => ({
+    question,
+    card: cards[index],
+    answer: getListAnswer(cards[index], question)
+  }));
+  const unanswered = responses.filter((item) => item.answer === null);
+
+  cards.forEach((card) => card.classList.remove("unanswered"));
+  if (unanswered.length && !allowIncomplete) {
+    unanswered.forEach((item) => item.card.classList.add("unanswered"));
+    elements.listFeedback.textContent = `Осталось ответить: ${unanswered.length}. Заполните отмеченные задания.`;
+    elements.listFeedback.className = "feedback list-feedback warning";
+    const firstControl = unanswered[0].card.querySelector("input, button");
+    unanswered[0].card.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (firstControl) firstControl.focus();
+    return;
+  }
+
+  state.elapsedSeconds = Math.max(
+    state.elapsedSeconds,
+    Math.floor((Date.now() - state.startedAt) / 1000)
+  );
+  const timePerQuestion = Math.max(1, Math.round(state.elapsedSeconds / Math.max(1, state.questions.length)));
+  state.answers = responses.map(({ question, answer }) => {
+    const isCorrect = answer !== null && answersEqual(answer, question.correctAnswer);
+    return {
+      questionId: question.id,
+      table: question.table,
+      factor: question.factor,
+      type: question.type,
+      prompt: question.prompt,
+      userAnswer: answer,
+      correctAnswer: question.correctAnswer,
+      isCorrect,
+      firstTryCorrect: isCorrect,
+      attempts: answer === null ? 0 : 1,
+      timeSpent: timePerQuestion
+    };
+  });
+
+  state.currentStreak = 0;
+  state.bestStreak = 0;
+  state.answers.forEach((answer) => {
+    if (answer.firstTryCorrect) {
+      state.currentStreak += 1;
+      state.bestStreak = Math.max(state.bestStreak, state.currentStreak);
+    } else {
+      state.currentStreak = 0;
+    }
+  });
+
+  state.locked = true;
+  clearInterval(state.timerId);
+  state.timerId = null;
+  finishQuiz(customTitle);
 }
 
 function renderQuestion() {
@@ -1270,7 +1499,11 @@ function startTimer() {
     updateTimerText();
 
     if (state.settings.timeLimit > 0 && state.elapsedSeconds >= state.settings.timeLimit) {
-      finishQuiz("Время закончилось");
+      if (state.settings.listMode) {
+        submitListAnswers({ allowIncomplete: true, customTitle: "Время закончилось" });
+      } else {
+        finishQuiz("Время закончилось");
+      }
     }
   }, 250);
 }
@@ -1313,6 +1546,7 @@ function renderResults(customTitle = "") {
 
   elements.resultTitle.textContent = customTitle || getResultTitle(percent);
   elements.scorePercent.textContent = `${percent}%`;
+  elements.scorePercent.parentElement?.style.setProperty("--score", String(percent));
   elements.correctStat.textContent = `${correct} из ${total}`;
   elements.timeStat.textContent = formatTime(state.elapsedSeconds);
   elements.averageStat.textContent = `${average} сек`;
@@ -1446,8 +1680,13 @@ function startMistakeRetry() {
   };
 
   showScreen("quiz");
+  setQuizMode(Boolean(state.settings.listMode));
   startTimer();
-  renderQuestion();
+  if (state.settings.listMode) {
+    renderQuestionList();
+  } else {
+    renderQuestion();
+  }
 }
 
 function saveHistory() {
@@ -1463,7 +1702,8 @@ function saveHistory() {
     percent: Math.round((correct / total) * 100),
     time: state.elapsedSeconds,
     tables,
-    retryMode: state.retryMode
+    retryMode: state.retryMode,
+    listMode: Boolean(state.settings?.listMode)
   });
 
   localStorage.setItem("multiplicationTrainerHistory", JSON.stringify(history.slice(0, 20)));
@@ -1500,7 +1740,7 @@ function renderHistory() {
         ${history.map((item) => `
           <tr>
             <td>${formatDate(item.date)}</td>
-            <td>${item.retryMode ? "Работа над ошибками" : item.tables.join(", ")}</td>
+            <td>${item.retryMode ? "Работа над ошибками" : item.tables.join(", ")}${item.listMode ? " · списком" : ""}</td>
             <td>${item.correct}/${item.total} — ${item.percent}%</td>
             <td>${formatTime(item.time)}</td>
           </tr>
@@ -1590,8 +1830,10 @@ function toggleTheme() {
 
 function loadTheme() {
   const saved = localStorage.getItem("multiplicationTrainerTheme");
-  if (saved === "dark") {
+  if (saved !== "light") {
     document.body.classList.add("dark");
+  } else {
+    document.body.classList.remove("dark");
   }
 }
 
@@ -1639,6 +1881,7 @@ function formatDate(isoDate) {
 }
 
 function formatAnswer(value) {
+  if (value === null || value === undefined || value === "") return "Нет ответа";
   if (value === true) return "Верно";
   if (value === false) return "Неверно";
   return String(value);

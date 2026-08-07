@@ -1357,6 +1357,12 @@ hr { border-color: var(--border); }
 .trainer-actions button span, .game-create-button span { font-size: .91rem; font-weight: 900; }
 .trainer-actions button small, .game-create-button small { margin-top: 3px; opacity: .68; font-size: .66rem; font-weight: 700; }
 .download-html-button { margin-top: 0; }
+.pdf-print-button {
+  grid-column: 1 / -1;
+  margin-top: 0;
+  border-style: dashed;
+}
+.pdf-print-button small { opacity: .72; }
 .game-create-button {
   margin-top: 10px;
   color: #21180b;
@@ -2137,6 +2143,7 @@ hr { border-color: var(--border); }
             <div class="trainer-actions" aria-label="Действия с тренировкой">
               <button id="startButton" class="primary-button wide" type="button"><span>Начать здесь</span><small>Запуск в браузере</small></button>
               <button id="downloadHtmlButton" class="secondary-button wide download-html-button" type="button"><span>Скачать ученику</span><small>Один автономный HTML</small></button>
+              <button id="downloadPdfButton" class="secondary-button wide pdf-print-button" type="button"><span>Скачать PDF</span><small>Ч/б лист A4 · компактная версия для печати</small></button>
             </div>
             <button id="createGameButton" class="primary-button wide game-create-button" type="button"><span>Создать игровую версию</span><small>Гонка · Башня · Пиньята</small></button>
           </div>
@@ -2342,6 +2349,7 @@ const elements = {
   listMode: document.getElementById("listMode"),
   startButton: document.getElementById("startButton"),
   downloadHtmlButton: document.getElementById("downloadHtmlButton"),
+  downloadPdfButton: document.getElementById("downloadPdfButton"),
   createGameButton: document.getElementById("createGameButton"),
   gameModal: document.getElementById("gameModal"),
   closeGameModalButton: document.getElementById("closeGameModalButton"),
@@ -2509,6 +2517,7 @@ function bindEvents() {
   elements.timeLimit.addEventListener("change", syncCustomTimeVisibility);
   elements.startButton.addEventListener("click", startQuiz);
   elements.downloadHtmlButton.addEventListener("click", downloadStandaloneHtml);
+  elements.downloadPdfButton.addEventListener("click", downloadPrintablePdf);
   elements.createGameButton.addEventListener("click", openGameModal);
   elements.closeGameModalButton.addEventListener("click", closeGameModal);
   elements.cancelGameButton.addEventListener("click", closeGameModal);
@@ -2801,6 +2810,164 @@ async function downloadStandaloneHtml() {
   } finally {
     elements.downloadHtmlButton.disabled = false;
   }
+}
+
+
+function downloadPrintablePdf() {
+  const settings = getSettings();
+  const error = validateSettings(settings);
+  elements.setupError.textContent = error;
+  elements.setupError.classList.remove("success-message");
+  if (error) return;
+
+  // Open synchronously from the click handler so browsers do not block the window.
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    elements.setupError.textContent = "Браузер заблокировал окно печати. Разрешите всплывающие окна и повторите.";
+    return;
+  }
+
+  try {
+    const questions = generateQuestions(settings);
+    const html = buildPrintableWorksheetHtml(settings, questions);
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    elements.setupError.textContent = "Печатная версия готова. В окне печати выберите «Сохранить как PDF» или отправьте лист на принтер.";
+    elements.setupError.classList.add("success-message");
+    window.setTimeout(() => {
+      elements.setupError.textContent = "";
+      elements.setupError.classList.remove("success-message");
+    }, 6000);
+
+    window.setTimeout(() => {
+      try {
+        printWindow.focus();
+        printWindow.print();
+      } catch (printError) {
+        console.error(printError);
+      }
+    }, 300);
+  } catch (printError) {
+    console.error(printError);
+    printWindow.close();
+    elements.setupError.textContent = "Не удалось подготовить печатную версию.";
+  }
+}
+
+function buildPrintableWorksheetHtml(settings, questions) {
+  const tablesText = settings.randomTables
+    ? "случайные таблицы 2–10"
+    : `таблицы: ${settings.tables.join(", ")}`;
+  const factorsText = `множители ${settings.minFactor}–${settings.maxFactor}`;
+  const generatedAt = new Date().toLocaleDateString("ru-RU");
+  const tasksHtml = questions.map((question, index) => renderPrintableQuestion(question, index)).join("");
+
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Таблица умножения — печатная тренировка</title>
+<style>
+  @page { size: A4 portrait; margin: 9mm 10mm 11mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; line-height: 1.25; }
+  .sheet { width: 100%; }
+  .sheet-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4mm 8mm;
+    align-items: end;
+    padding-bottom: 4mm;
+    margin-bottom: 4mm;
+    border-bottom: .45mm solid #000;
+  }
+  h1 { margin: 0 0 1.5mm; font-size: 16pt; line-height: 1.05; }
+  .meta { margin: 0; font-size: 8.5pt; }
+  .student-fields { min-width: 66mm; font-size: 9pt; line-height: 1.75; text-align: right; white-space: nowrap; }
+  .line { display: inline-block; width: 38mm; border-bottom: .25mm solid #000; transform: translateY(-.5mm); }
+  .line.short { width: 21mm; }
+  .worksheet-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 8mm;
+    row-gap: 3.2mm;
+    align-items: start;
+  }
+  .print-task {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    display: grid;
+    grid-template-columns: 7mm minmax(0, 1fr);
+    gap: 1.5mm;
+    padding-top: 2.2mm;
+    border-top: .22mm solid #777;
+  }
+  .task-number { font-weight: 700; font-size: 10pt; }
+  .task-prompt { font-size: 11.5pt; font-weight: 600; letter-spacing: .01em; }
+  .answer-line { margin-top: 2.2mm; font-size: 9pt; }
+  .blank { display: inline-block; width: 31mm; border-bottom: .28mm solid #000; transform: translateY(-.6mm); }
+  .print-choices { display: flex; flex-wrap: wrap; gap: 1.5mm 5mm; margin-top: 2.1mm; font-size: 9.5pt; }
+  .print-choice { white-space: nowrap; }
+  .box { display: inline-block; width: 3.6mm; height: 3.6mm; margin-right: 1.2mm; border: .3mm solid #000; vertical-align: -0.7mm; }
+  .print-visual {
+    display: grid;
+    width: max-content;
+    margin-top: 2.2mm;
+    gap: 1.4mm;
+    padding: 1.7mm;
+    border: .22mm solid #888;
+  }
+  .print-dot { width: 1.7mm; height: 1.7mm; border-radius: 50%; background: #000; }
+  .print-footer-note { margin: 4mm 0 0; font-size: 7.5pt; text-align: right; }
+  @media screen {
+    body { max-width: 210mm; margin: 0 auto; padding: 9mm 10mm 11mm; box-shadow: 0 0 20px rgba(0,0,0,.12); }
+  }
+  @media print {
+    .print-footer-note { display: none; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <header class="sheet-header">
+    <div>
+      <h1>Таблица умножения</h1>
+      <p class="meta">${escapeHtml(tablesText)} · ${escapeHtml(factorsText)} · ${questions.length} заданий</p>
+    </div>
+    <div class="student-fields">ФИО: <span class="line"></span><br>Дата: <span class="line short">${escapeHtml(generatedAt)}</span></div>
+  </header>
+  <section class="worksheet-grid">${tasksHtml}</section>
+  <p class="print-footer-note">Чёрно-белая версия A4</p>
+</main>
+</body>
+</html>`;
+}
+
+function renderPrintableQuestion(question, index) {
+  const visual = question.visual ? renderPrintableVisual(question.visual) : "";
+  const answer = question.choices
+    ? `<div class="print-choices">${question.choices.map((choice) => `<span class="print-choice"><span class="box"></span>${escapeHtml(choice.label)}</span>`).join("")}</div>`
+    : `<div class="answer-line">Ответ: <span class="blank"></span></div>`;
+
+  return `<article class="print-task">
+    <div class="task-number">${index + 1}.</div>
+    <div>
+      <div class="task-prompt">${escapeHtml(question.prompt)}</div>
+      ${visual}
+      ${answer}
+    </div>
+  </article>`;
+}
+
+function renderPrintableVisual(visual) {
+  const totalDots = visual.rows * visual.columns;
+  return `<div class="print-visual" style="grid-template-columns: repeat(${visual.columns}, 1.7mm)" aria-label="${visual.rows} рядов по ${visual.columns} точек">
+    ${Array.from({ length: totalDots }, () => '<span class="print-dot"></span>').join("")}
+  </div>`;
 }
 
 

@@ -1402,51 +1402,53 @@ hr { border-color: var(--border); }
 .visual-area { border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent); background: var(--primary-soft); }
 
 
-/* Floating timer during an active training session. */
-#quizScreen:not(.hidden) .timer-box {
-  position: fixed;
-  top: max(12px, env(safe-area-inset-top));
-  right: max(12px, calc((100vw - 820px) / 2 + 16px));
-  z-index: 1200;
+/* Timer inside the sticky application header. */
+.header-timer-box {
+  flex: 0 0 auto;
   min-width: 112px;
-  padding: 10px 13px;
-  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--card-solid) 92%, transparent);
-  box-shadow: 0 12px 34px rgba(10, 15, 30, .18), 0 0 0 1px rgba(255,255,255,.05) inset;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  padding: 8px 13px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--primary-soft) 72%, var(--card-solid));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
   text-align: center;
+  line-height: 1.1;
 }
-#quizScreen:not(.hidden) .timer-box span {
-  font-size: .68rem;
+.header-timer-box span {
+  display: block;
+  color: var(--muted);
+  font-size: .62rem;
   font-weight: 850;
-  letter-spacing: .06em;
+  letter-spacing: .07em;
   text-transform: uppercase;
 }
-#quizScreen:not(.hidden) .timer-box strong {
+.header-timer-box strong {
   display: block;
-  margin-top: 1px;
-  font-size: 1.3rem;
+  margin-top: 3px;
+  color: var(--primary);
+  font-size: 1.28rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .025em;
 }
-#quizScreen:not(.hidden) .quiz-topbar > div:first-child {
-  padding-right: 128px;
+.header-timer-box.hidden { display: none !important; }
+
+@media (max-width: 760px) {
+  .header-timer-box {
+    order: 2;
+    min-width: 94px;
+    padding: 7px 10px;
+  }
+  .header-timer-box strong { font-size: 1.08rem; }
 }
 
 @media (max-width: 520px) {
-  #quizScreen:not(.hidden) .timer-box {
-    top: max(8px, env(safe-area-inset-top));
-    right: max(8px, env(safe-area-inset-right));
-    min-width: 96px;
-    padding: 8px 10px;
-    border-radius: 14px;
+  .header-timer-box {
+    min-width: 86px;
+    padding: 6px 8px;
+    border-radius: 13px;
   }
-  #quizScreen:not(.hidden) .timer-box strong {
-    font-size: 1.12rem;
-  }
-  #quizScreen:not(.hidden) .quiz-topbar > div:first-child {
-    padding-right: 106px;
-  }
+  .header-timer-box span { font-size: .55rem; }
+  .header-timer-box strong { font-size: 1rem; }
 }
 
 /* Results */

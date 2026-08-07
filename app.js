@@ -44,6 +44,7 @@ const elements = {
   progressText: document.getElementById("progressText"),
   progressBar: document.getElementById("progressBar"),
   timerText: document.getElementById("timerText"),
+  headerTimerBox: document.getElementById("headerTimerBox"),
   questionLabel: document.getElementById("questionLabel"),
   questionText: document.getElementById("questionText"),
   visualArea: document.getElementById("visualArea"),
@@ -1858,6 +1859,10 @@ function showScreen(name) {
   elements.setupScreen.classList.toggle("hidden", name !== "setup");
   elements.quizScreen.classList.toggle("hidden", name !== "quiz");
   elements.resultsScreen.classList.toggle("hidden", name !== "results");
+
+  const showHeaderTimer = name === "quiz" && (state.settings?.timeLimit ?? 0) > 0;
+  elements.headerTimerBox?.classList.toggle("hidden", !showHeaderTimer);
+
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 

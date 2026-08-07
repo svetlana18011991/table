@@ -18,6 +18,9 @@ const elements = {
   minFactor: document.getElementById("minFactor"),
   maxFactor: document.getElementById("maxFactor"),
   timeLimit: document.getElementById("timeLimit"),
+  customTimeFields: document.getElementById("customTimeFields"),
+  customTimeMinutes: document.getElementById("customTimeMinutes"),
+  customTimeSeconds: document.getElementById("customTimeSeconds"),
   instantFeedback: document.getElementById("instantFeedback"),
   secondAttempt: document.getElementById("secondAttempt"),
   shuffleQuestions: document.getElementById("shuffleQuestions"),
@@ -187,6 +190,7 @@ function bindEvents() {
   elements.selectAllTables.addEventListener("click", () => setAllTables(true));
   elements.clearTables.addEventListener("click", () => setAllTables(false));
   elements.randomTables.addEventListener("change", updateTablesDisabledState);
+  elements.timeLimit.addEventListener("change", syncCustomTimeVisibility);
   elements.startButton.addEventListener("click", startQuiz);
   elements.downloadHtmlButton.addEventListener("click", downloadStandaloneHtml);
   elements.createGameButton.addEventListener("click", openGameModal);
@@ -259,18 +263,57 @@ function bindEvents() {
   });
 }
 
+function syncCustomTimeVisibility() {
+  const isCustom = elements.timeLimit.value === "custom";
+  elements.customTimeFields.classList.toggle("hidden", !isCustom);
+}
+
+function getConfiguredTimeLimitSeconds() {
+  if (elements.timeLimit.value !== "custom") {
+    return Number(elements.timeLimit.value || 0);
+  }
+
+  const minutes = Math.max(0, Math.min(180, Math.floor(Number(elements.customTimeMinutes.value) || 0)));
+  const seconds = Math.max(0, Math.min(59, Math.floor(Number(elements.customTimeSeconds.value) || 0)));
+  return minutes * 60 + seconds;
+}
+
+function setTimeLimitControl(totalSeconds) {
+  const seconds = Math.max(0, Math.round(Number(totalSeconds) || 0));
+  const presets = new Set([0, 60, 120, 180, 300]);
+
+  if (presets.has(seconds)) {
+    elements.timeLimit.value = String(seconds);
+  } else {
+    elements.timeLimit.value = "custom";
+    elements.customTimeMinutes.value = String(Math.floor(seconds / 60));
+    elements.customTimeSeconds.value = String(seconds % 60);
+  }
+
+  syncCustomTimeVisibility();
+}
+
+function formatTimeLimitSummary(totalSeconds) {
+  const seconds = Math.max(0, Math.round(Number(totalSeconds) || 0));
+  if (!seconds) return "Свободный";
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  if (!rest) return `${minutes} мин`;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
+}
+
 function updateDashboardSummary() {
   if (!elements.heroTablesValue) return;
   const selectedTables = [...elements.tablesGrid.querySelectorAll('input[type="checkbox"]:checked')]
     .map((input) => input.value);
   const selectedTypes = document.querySelectorAll('#typesGrid input[type="checkbox"]:checked').length;
-  const timeValue = Number(elements.timeLimit.value || 0);
+  const timeValue = getConfiguredTimeLimitSeconds();
 
   elements.heroTablesValue.textContent = elements.randomTables.checked
     ? "Случайно"
     : selectedTables.length ? selectedTables.join(", ") : "Не выбраны";
   elements.heroQuestionsValue.textContent = String(elements.questionCount.value || "—");
-  elements.heroTimeValue.textContent = timeValue ? `${Math.round(timeValue / 60)} мин` : "Свободный";
+  elements.heroTimeValue.textContent = formatTimeLimitSummary(timeValue);
   elements.heroTypesValue.textContent = String(selectedTypes);
 }
 
@@ -299,7 +342,7 @@ function applyPresetSettings(preset) {
   elements.questionCount.value = preset.count ?? 15;
   elements.minFactor.value = preset.minFactor ?? 1;
   elements.maxFactor.value = preset.maxFactor ?? 10;
-  elements.timeLimit.value = String(preset.timeLimit ?? 0);
+  setTimeLimitControl(preset.timeLimit ?? 0);
   elements.instantFeedback.checked = preset.instantFeedback !== false;
   elements.secondAttempt.checked = preset.secondAttempt !== false;
   elements.shuffleQuestions.checked = preset.shuffle !== false;
@@ -905,7 +948,7 @@ function getSettings() {
     count: Number(elements.questionCount.value),
     minFactor: Number(elements.minFactor.value),
     maxFactor: Number(elements.maxFactor.value),
-    timeLimit: Number(elements.timeLimit.value),
+    timeLimit: getConfiguredTimeLimitSeconds(),
     instantFeedback: elements.instantFeedback.checked,
     secondAttempt: elements.secondAttempt.checked,
     shuffle: elements.shuffleQuestions.checked,
@@ -915,6 +958,9 @@ function getSettings() {
 }
 
 function validateSettings(settings) {
+  if (elements.timeLimit.value === "custom" && settings.timeLimit < 1) {
+    return "Для своего времени укажите хотя бы 1 секунду.";
+  }
   if (!settings.randomTables && settings.tables.length === 0) {
     return "Выберите хотя бы одну таблицу или включите случайный режим.";
   }

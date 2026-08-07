@@ -260,6 +260,31 @@ legend {
   gap: 14px;
 }
 
+.custom-time-fields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 160px));
+  align-items: end;
+  gap: 10px 14px;
+  margin-top: -2px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--primary-soft);
+}
+
+.custom-time-fields label { color: var(--text); }
+.custom-time-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 560px) {
+  .custom-time-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .form-grid label,
 .answer-label {
   display: grid;

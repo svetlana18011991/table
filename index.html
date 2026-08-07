@@ -285,10 +285,7 @@ legend {
   background: var(--primary-soft);
 }
 
-.custom-time-fields label {
-  color: var(--text);
-}
-
+.custom-time-fields label { color: var(--text); }
 .custom-time-hint {
   grid-column: 1 / -1;
   margin: 0;
@@ -297,9 +294,7 @@ legend {
 }
 
 @media (max-width: 560px) {
-  .custom-time-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  .custom-time-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .form-grid label,
@@ -1418,6 +1413,54 @@ hr { border-color: var(--border); }
 .text-button:hover { color: var(--danger); }
 .visual-area { border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent); background: var(--primary-soft); }
 
+
+/* Floating timer during an active training session. */
+#quizScreen:not(.hidden) .timer-box {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, calc((100vw - 820px) / 2 + 16px));
+  z-index: 1200;
+  min-width: 112px;
+  padding: 10px 13px;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card-solid) 92%, transparent);
+  box-shadow: 0 12px 34px rgba(10, 15, 30, .18), 0 0 0 1px rgba(255,255,255,.05) inset;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  text-align: center;
+}
+#quizScreen:not(.hidden) .timer-box span {
+  font-size: .68rem;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+#quizScreen:not(.hidden) .timer-box strong {
+  display: block;
+  margin-top: 1px;
+  font-size: 1.3rem;
+}
+#quizScreen:not(.hidden) .quiz-topbar > div:first-child {
+  padding-right: 128px;
+}
+
+@media (max-width: 520px) {
+  #quizScreen:not(.hidden) .timer-box {
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    min-width: 96px;
+    padding: 8px 10px;
+    border-radius: 14px;
+  }
+  #quizScreen:not(.hidden) .timer-box strong {
+    font-size: 1.12rem;
+  }
+  #quizScreen:not(.hidden) .quiz-topbar > div:first-child {
+    padding-right: 106px;
+  }
+}
+
 /* Results */
 .results-hero { position: relative; overflow: hidden; padding-top: 42px; }
 .results-hero::after { content: "✦"; position: absolute; right: 7%; top: 7%; color: var(--gold-soft); font-size: 7rem; }
@@ -1874,6 +1917,7 @@ hr { border-color: var(--border); }
   .list-quiz-actions { flex-direction: column; }
   .list-quiz-actions button { width: 100%; }
 }
+
 </style>
 </head>
 <body class="trainer-locked">

@@ -1747,7 +1747,18 @@ hr { border-color: var(--border); }
 }
 .list-mode-option:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
 .list-mode-option:has(input:checked) { border-color: var(--primary); box-shadow: 0 12px 30px var(--primary-glow); }
-.list-mode-option input { position: absolute; opacity: 0; pointer-events: none; }
+.list-mode-section-title { margin-top: 22px; margin-bottom: 10px; }
+.list-mode-option input {
+  position: static;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  opacity: 1;
+  pointer-events: auto;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.list-mode-check { display: none !important; }
 .list-mode-check {
   width: 28px;
   height: 28px;
